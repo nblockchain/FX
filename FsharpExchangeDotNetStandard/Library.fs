@@ -13,6 +13,9 @@ type Side =
 type LimitOrder =
     { Side: Side; Quantity: decimal; Price: decimal }
 
+type MarketOrder =
+    { Side: Side; Quantity: decimal; }
+
 type OrderBookSide =
     list<LimitOrder>
 
@@ -41,7 +44,10 @@ type public Exchange() =
 
     let lockObject = Object()
 
-    member x.SendOrder (limitOrder: LimitOrder, market: Market) =
+    member x.SendMarketOrder (limitOrder: MarketOrder, market: Market): unit =
+        raise (new NotImplementedException())
+
+    member x.SendLimitOrder (limitOrder: LimitOrder, market: Market) =
         lock lockObject (
             fun _ ->
                 let maybeOrderBook = Map.tryFind market markets
