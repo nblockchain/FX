@@ -10,8 +10,7 @@ namespace FsharpExchange.Tests
     [TestFixture]
     public class Unit
     {
-        [Test]
-        public void Limit_order_is_sent_properly_and_shows_up_in_order_book()
+        public void Limit_order_is_accepted_by_empty_exchange(Side side)
         {
             var exchange = new Exchange();
             var market = new Market(Currency.BTC, Currency.USD);
@@ -25,20 +24,31 @@ namespace FsharpExchange.Tests
 
             var amountOfBitcoinToPurchase = 1;
             var priceOfBitcoinInUsd = 10000;
-            var order = new LimitOrder(Side.Buy,
+            var order = new LimitOrder(side,
                                        amountOfBitcoinToPurchase,
                                        priceOfBitcoinInUsd);
 
             exchange.SendOrder(order, market);
             var btcUsdOrderBookAgain = exchange[market];
-            Assert.That(btcUsdOrderBookAgain[Side.Buy].Count(), Is.EqualTo(1));
-            Assert.That(btcUsdOrderBookAgain[Side.Sell].Count(), Is.EqualTo(0));
-            var uniqueLimitOrder = btcUsdOrderBookAgain[Side.Buy].ElementAt(0);
-            Assert.That(uniqueLimitOrder.Side, Is.EqualTo(Side.Buy));
+            Assert.That(btcUsdOrderBookAgain[side].Count(), Is.EqualTo(1));
+            var uniqueLimitOrder = btcUsdOrderBookAgain[side].ElementAt(0);
+            Assert.That(uniqueLimitOrder.Side, Is.EqualTo(side));
             Assert.That(uniqueLimitOrder.Price,
                         Is.EqualTo(priceOfBitcoinInUsd));
             Assert.That(uniqueLimitOrder.Quantity,
                         Is.EqualTo(amountOfBitcoinToPurchase));
+
+            var otherSide =
+                (side == Side.Sell) ? Side.Buy : Side.Sell;
+            Assert.That(btcUsdOrderBookAgain[otherSide].Count(), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Limit_order_is_sent_properly_and_shows_up_in_order_book()
+        {
+            Limit_order_is_accepted_by_empty_exchange(Side.Buy);
+
+            Limit_order_is_accepted_by_empty_exchange(Side.Sell);
         }
     }
 }
