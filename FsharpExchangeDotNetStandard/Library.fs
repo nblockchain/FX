@@ -16,17 +16,17 @@ type LimitOrder =
 type OrderBookSide =
     list<LimitOrder>
 
-type OrderBook() =
-    let mutable buySide:OrderBookSide = []
-    let mutable sellSide:OrderBookSide = []
+type OrderBook(buySide:OrderBookSide, sellSide:OrderBookSide) =
 
-    member internal x.InsertOrder (limitOrder: LimitOrder) =
-        // NO LOCKING BECAUSE Exchange.SendOrder() is assumed to hold a lock already
+    new() = OrderBook([], [])
+
+    member internal x.InsertOrder (limitOrder: LimitOrder): OrderBook =
         match limitOrder.Side with
         | Side.Buy ->
-            buySide <- limitOrder::buySide
+            OrderBook(limitOrder::buySide, sellSide)
         | Side.Sell ->
-            sellSide <- limitOrder::sellSide
+            OrderBook(buySide, limitOrder::sellSide)
+
     member x.Item
         with get (side: Side) =
             match side with
@@ -48,12 +48,11 @@ type public Exchange() =
                 let orderBook =
                     match maybeOrderBook with
                     | None ->
-                        let newOrderBook = OrderBook()
-                        markets <- markets.Add(market, newOrderBook)
-                        newOrderBook
+                        OrderBook()
                     | Some(orderBookFound) ->
                         orderBookFound
-                orderBook.InsertOrder limitOrder
+                let newOrderBook = orderBook.InsertOrder limitOrder
+                markets <- markets.Add(market, newOrderBook)
             )
 
     member x.Item
