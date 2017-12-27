@@ -1,7 +1,6 @@
 namespace FsharpExchangeDotNetStandard
 
 open System
-open System.Collections.Generic
 
 type public Currency =
     | BTC
@@ -14,20 +13,20 @@ type Side =
 type LimitOrder =
     { Side: Side; Quantity: decimal; Price: decimal }
 
-type OrderBookSide() =
-    inherit List<LimitOrder>()
+type OrderBookSide =
+    list<LimitOrder>
 
 type OrderBook() =
-    let buySide = OrderBookSide()
-    let sellSide = OrderBookSide()
+    let mutable buySide:OrderBookSide = []
+    let mutable sellSide:OrderBookSide = []
 
     member internal x.InsertOrder (limitOrder: LimitOrder) =
         // NO LOCKING BECAUSE Exchange.SendOrder() is assumed to hold a lock already
-        let side =
-            match limitOrder.Side with
-            | Side.Buy -> buySide
-            | Side.Sell -> sellSide
-        side.Add limitOrder
+        match limitOrder.Side with
+        | Side.Buy ->
+            buySide <- limitOrder::buySide
+        | Side.Sell ->
+            sellSide <- limitOrder::sellSide
     member x.Item
         with get (side: Side) =
             match side with
@@ -38,21 +37,21 @@ type public Market =
     { BuyCurrency: Currency; SellCurrency: Currency }
 
 type public Exchange() =
-    let markets = Dictionary<Market, OrderBook>()
+    let mutable markets: Map<Market, OrderBook> = Map.empty
 
     let lockObject = Object()
 
     member x.SendOrder (limitOrder: LimitOrder, market: Market) =
         lock lockObject (
             fun _ ->
-                let exists,maybeOrderBook = markets.TryGetValue market
+                let maybeOrderBook = Map.tryFind market markets
                 let orderBook =
-                    match (exists,maybeOrderBook) with
-                    | false,_ ->
+                    match maybeOrderBook with
+                    | None ->
                         let newOrderBook = OrderBook()
-                        markets.Add(market,newOrderBook)
+                        markets <- markets.Add(market, newOrderBook)
                         newOrderBook
-                    | true,orderBookFound ->
+                    | Some(orderBookFound) ->
                         orderBookFound
                 orderBook.InsertOrder limitOrder
             )
@@ -61,12 +60,12 @@ type public Exchange() =
         with get (market: Market): OrderBook =
             lock lockObject (
                 fun _ ->
-                    let exists,maybeOrderBook = markets.TryGetValue market
+                    let maybeOrderBook = Map.tryFind market markets
                     let orderBook =
-                        match (exists,maybeOrderBook) with
-                        | false,_ ->
+                        match maybeOrderBook with
+                        | None ->
                             OrderBook()
-                        | true,orderBookFound ->
+                        | Some(orderBookFound) ->
                             orderBookFound
                     orderBook
                 )

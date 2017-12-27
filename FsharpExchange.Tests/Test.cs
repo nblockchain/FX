@@ -5,10 +5,10 @@ using FsharpExchangeDotNetStandard;
 
 using NUnit.Framework;
 
-namespace Some.Tests
+namespace FsharpExchange.Tests
 {
     [TestFixture]
-    public class Tests
+    public class Unit
     {
         [Test]
         public void Limit_order_is_sent_properly_and_shows_up_in_order_book()
