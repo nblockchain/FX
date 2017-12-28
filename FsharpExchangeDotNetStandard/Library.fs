@@ -29,7 +29,7 @@ type OrderBook(buySide:OrderBookSide, sellSide:OrderBookSide) =
 
     let Match (marketOrder: MarketOrder) (orderBookSide: OrderBookSide): OrderBookSide =
         match orderBookSide with
-        | [] -> failwith "Case not covered :("
+        | [] -> raise LiquidityProblem
         | head::tail -> tail
 
     new() = OrderBook([], [])
