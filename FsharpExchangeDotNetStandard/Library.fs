@@ -2,6 +2,8 @@ namespace FsharpExchangeDotNetStandard
 
 open System
 
+exception LiquidityProblem
+
 type public Currency =
     | BTC
     | USD

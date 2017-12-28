@@ -88,5 +88,40 @@ namespace FsharpExchange.Tests
             Assert.That(btcUsdOrderBookAfterMatching2[Side.Sell].Count(),
                         Is.EqualTo(0));
         }
+
+        [Test]
+        public void Market_order_throw_on_exchange_with_not_enough_limit_orders_and_orderbooks_are_left_intact()
+        {
+            var quantityForMarketOrder = 1;
+            var market = new Market(Currency.BTC, Currency.USD);
+
+            var exchangeToSell = new Exchange();
+
+            var sellMarketOrder =
+                new MarketOrder(Side.Sell, quantityForMarketOrder);
+            Assert.Throws<LiquidityProblem>(() => {
+                exchangeToSell.SendMarketOrder(sellMarketOrder, market);
+            });
+
+            var btcUsdOrderBookAfterException1 = exchangeToSell[market];
+            Assert.That(btcUsdOrderBookAfterException1[Side.Sell].Count(),
+                        Is.EqualTo(0));
+            Assert.That(btcUsdOrderBookAfterException1[Side.Buy].Count(),
+                        Is.EqualTo(0));
+
+
+            var exchangeToBuy = new Exchange();
+            var buyMarketOrder =
+                new MarketOrder(Side.Buy, quantityForMarketOrder);
+            Assert.Throws<LiquidityProblem>(() => {
+                exchangeToBuy.SendMarketOrder(sellMarketOrder, market);
+            });
+
+            var btcUsdOrderBookAfterException2 = exchangeToBuy[market];
+            Assert.That(btcUsdOrderBookAfterException1[Side.Buy].Count(),
+                        Is.EqualTo(0));
+            Assert.That(btcUsdOrderBookAfterException1[Side.Sell].Count(),
+                        Is.EqualTo(0));
+        }
     }
 }
