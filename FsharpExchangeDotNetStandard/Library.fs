@@ -16,19 +16,36 @@ type LimitOrder =
 type MarketOrder =
     { Side: Side; Quantity: decimal; }
 
+type internal Order =
+    | Limit of LimitOrder
+    | Market of MarketOrder
+
 type OrderBookSide =
     list<LimitOrder>
 
 type OrderBook(buySide:OrderBookSide, sellSide:OrderBookSide) =
 
+    let Match (marketOrder: MarketOrder) (orderBookSide: OrderBookSide): OrderBookSide =
+        match orderBookSide with
+        | [] -> failwith "Case not covered :("
+        | head::tail -> tail
+
     new() = OrderBook([], [])
 
-    member internal x.InsertOrder (limitOrder: LimitOrder): OrderBook =
-        match limitOrder.Side with
-        | Side.Buy ->
-            OrderBook(limitOrder::buySide, sellSide)
-        | Side.Sell ->
-            OrderBook(buySide, limitOrder::sellSide)
+    member internal x.InsertOrder (order: Order): OrderBook =
+        match order with
+        | Limit(limitOrder) ->
+            match limitOrder.Side with
+            | Side.Buy ->
+                OrderBook(limitOrder::buySide, sellSide)
+            | Side.Sell ->
+                OrderBook(buySide, limitOrder::sellSide)
+        | Market(marketOrder) ->
+            match marketOrder.Side with
+            | Side.Buy ->
+                OrderBook(buySide, Match marketOrder sellSide)
+            | Side.Sell ->
+                OrderBook(Match marketOrder buySide, sellSide)
 
     member x.Item
         with get (side: Side) =
@@ -44,10 +61,7 @@ type public Exchange() =
 
     let lockObject = Object()
 
-    member x.SendMarketOrder (limitOrder: MarketOrder, market: Market): unit =
-        raise (new NotImplementedException())
-
-    member x.SendLimitOrder (limitOrder: LimitOrder, market: Market) =
+    let ReceiveOrder (order: Order) (market: Market) =
         lock lockObject (
             fun _ ->
                 let maybeOrderBook = Map.tryFind market markets
@@ -57,9 +71,15 @@ type public Exchange() =
                         OrderBook()
                     | Some(orderBookFound) ->
                         orderBookFound
-                let newOrderBook = orderBook.InsertOrder limitOrder
+                let newOrderBook = orderBook.InsertOrder order
                 markets <- markets.Add(market, newOrderBook)
             )
+
+    member x.SendMarketOrder (order: MarketOrder, market: Market): unit =
+        ReceiveOrder (Market(order)) market
+
+    member x.SendLimitOrder (order: LimitOrder, market: Market) =
+        ReceiveOrder (Limit(order)) market
 
     member x.Item
         with get (market: Market): OrderBook =
