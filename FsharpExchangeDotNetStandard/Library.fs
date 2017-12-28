@@ -30,7 +30,11 @@ type OrderBook(buySide:OrderBookSide, sellSide:OrderBookSide) =
     let Match (marketOrder: MarketOrder) (orderBookSide: OrderBookSide): OrderBookSide =
         match orderBookSide with
         | [] -> raise LiquidityProblem
-        | head::tail -> tail
+        | firstLimitOrder::tail ->
+            if (marketOrder.Quantity > firstLimitOrder.Quantity) then
+                raise LiquidityProblem
+            else
+                tail
 
     new() = OrderBook([], [])
 
