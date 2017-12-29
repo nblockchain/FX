@@ -242,7 +242,6 @@ namespace FsharpExchange.Tests
         }
 
         [Test]
-        [Ignore("Doesn't work yet")]
         public void Market_order_partial_match_on_exchange_with_one_limit_order()
         {
             Market_order_partial_match_on_exchange_with_one_limit_order(Side.Buy);

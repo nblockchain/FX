@@ -37,8 +37,13 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
         | firstLimitOrder::tail ->
             if (quantityLeftToMatch > firstLimitOrder.Quantity) then
                 Match (quantityLeftToMatch - firstLimitOrder.Quantity) tail
-            else
+            elif (quantityLeftToMatch = firstLimitOrder.Quantity) then
                 tail
+            else //if (quantityLeftToMatch < firstLimitOrder.Quantity)
+                let newPartialLimitOrder = { Side = firstLimitOrder.Side;
+                                             Price = firstLimitOrder.Price;
+                                             Quantity = firstLimitOrder.Quantity - quantityLeftToMatch }
+                newPartialLimitOrder::tail
 
     new() = OrderBook([], [])
 
