@@ -10,6 +10,11 @@ namespace FsharpExchange.Tests
     [TestFixture]
     public class Unit
     {
+        private Side OtherSide(Side side)
+        {
+            return side == Side.Sell ? Side.Buy : Side.Sell;
+        }
+
         private Exchange Limit_order_is_accepted_by_empty_exchange
             (LimitOrder limitOrder,
              Market market)
@@ -34,8 +39,7 @@ namespace FsharpExchange.Tests
             Assert.That(uniqueLimitOrder.Quantity,
                         Is.EqualTo(limitOrder.Quantity));
 
-            var otherSide =
-                (side == Side.Sell) ? Side.Buy : Side.Sell;
+            var otherSide = OtherSide(side);
             Assert.That(btcUsdOrderBookAgain[otherSide].Count(), Is.EqualTo(0));
 
             return exchange;
@@ -56,76 +60,65 @@ namespace FsharpExchange.Tests
             Limit_order_is_accepted_by_empty_exchange(sellOrder, market);
         }
 
-        [Test]
-        public void Market_order_match_on_exchange_with_one_limit_order()
+        private void Market_order_match_on_exchange_with_one_limit_order(Side side)
         {
             var quantity = 1;
             var priceForLimitOrder = 10000;
             var market = new Market(Currency.BTC, Currency.USD);
 
-            var buyLimitOrder =
-                new LimitOrder(Side.Buy, quantity, priceForLimitOrder);
-            var exchangeToSell =
-                Limit_order_is_accepted_by_empty_exchange(buyLimitOrder, market);
+            var otherSide = OtherSide(side);
 
-            var sellMarketOrder = new MarketOrder(Side.Sell, quantity);
-            exchangeToSell.SendMarketOrder(sellMarketOrder, market);
-            var btcUsdOrderBookAfterMatching1 = exchangeToSell[market];
-            Assert.That(btcUsdOrderBookAfterMatching1[Side.Buy].Count(),
-                        Is.EqualTo(0));
-            Assert.That(btcUsdOrderBookAfterMatching1[Side.Sell].Count(),
-                        Is.EqualTo(0));
+            var limitOrder =
+                new LimitOrder(side, quantity, priceForLimitOrder);
+            var exchange =
+                Limit_order_is_accepted_by_empty_exchange(limitOrder, market);
 
-            var sellLimitOrder =
-                new LimitOrder(Side.Sell, quantity, priceForLimitOrder);
-            var exchangeToBuy =
-                Limit_order_is_accepted_by_empty_exchange(sellLimitOrder, market);
-            var buyMarketOrder = new MarketOrder(Side.Buy, quantity);
-            exchangeToBuy.SendMarketOrder(buyMarketOrder, market);
-            var btcUsdOrderBookAfterMatching2 = exchangeToBuy[market];
-            Assert.That(btcUsdOrderBookAfterMatching2[Side.Buy].Count(),
+            var marketOrder = new MarketOrder(otherSide, quantity);
+            exchange.SendMarketOrder(marketOrder, market);
+            var btcUsdOrderBookAfterMatching = exchange[market];
+            Assert.That(btcUsdOrderBookAfterMatching[Side.Buy].Count(),
                         Is.EqualTo(0));
-            Assert.That(btcUsdOrderBookAfterMatching2[Side.Sell].Count(),
+            Assert.That(btcUsdOrderBookAfterMatching[Side.Sell].Count(),
+                        Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Market_order_match_on_exchange_with_one_limit_order()
+        {
+            Market_order_match_on_exchange_with_one_limit_order(Side.Buy);
+
+            Market_order_match_on_exchange_with_one_limit_order(Side.Sell);
+        }
+
+        private void Market_order_throw_on_exchange_with_not_enough_limit_orders_and_orderbooks_are_left_intact(Side side)
+        {
+            var quantityForMarketOrder = 1;
+            var market = new Market(Currency.BTC, Currency.USD);
+
+            var exchange = new Exchange();
+
+            var marketOrder =
+                new MarketOrder(side, quantityForMarketOrder);
+            Assert.Throws<LiquidityProblem>(() => {
+                exchange.SendMarketOrder(marketOrder, market);
+            });
+
+            var btcUsdOrderBookAfterException = exchange[market];
+            Assert.That(btcUsdOrderBookAfterException[Side.Sell].Count(),
+                        Is.EqualTo(0));
+            Assert.That(btcUsdOrderBookAfterException[Side.Buy].Count(),
                         Is.EqualTo(0));
         }
 
         [Test]
         public void Market_order_throw_on_exchange_with_not_enough_limit_orders_and_orderbooks_are_left_intact()
         {
-            var quantityForMarketOrder = 1;
-            var market = new Market(Currency.BTC, Currency.USD);
+            Market_order_throw_on_exchange_with_not_enough_limit_orders_and_orderbooks_are_left_intact(Side.Sell);
 
-            var exchangeToSell = new Exchange();
-
-            var sellMarketOrder =
-                new MarketOrder(Side.Sell, quantityForMarketOrder);
-            Assert.Throws<LiquidityProblem>(() => {
-                exchangeToSell.SendMarketOrder(sellMarketOrder, market);
-            });
-
-            var btcUsdOrderBookAfterException1 = exchangeToSell[market];
-            Assert.That(btcUsdOrderBookAfterException1[Side.Sell].Count(),
-                        Is.EqualTo(0));
-            Assert.That(btcUsdOrderBookAfterException1[Side.Buy].Count(),
-                        Is.EqualTo(0));
-
-
-            var exchangeToBuy = new Exchange();
-            var buyMarketOrder =
-                new MarketOrder(Side.Buy, quantityForMarketOrder);
-            Assert.Throws<LiquidityProblem>(() => {
-                exchangeToBuy.SendMarketOrder(sellMarketOrder, market);
-            });
-
-            var btcUsdOrderBookAfterException2 = exchangeToBuy[market];
-            Assert.That(btcUsdOrderBookAfterException1[Side.Buy].Count(),
-                        Is.EqualTo(0));
-            Assert.That(btcUsdOrderBookAfterException1[Side.Sell].Count(),
-                        Is.EqualTo(0));
+            Market_order_throw_on_exchange_with_not_enough_limit_orders_and_orderbooks_are_left_intact(Side.Buy);
         }
 
-        [Test]
-        public void Market_order_throw_on_exchange_with_not_enough_liquidity_in_limit_orders_and_orderbooks_are_left_intact()
+        private void Market_order_throw_on_exchange_with_not_enough_liquidity_in_limit_orders_and_orderbooks_are_left_intact(Side side)
         {
             var quantityForLimitOrder = 1;
 
@@ -135,52 +128,39 @@ namespace FsharpExchange.Tests
             var priceForLimitOrder = 10000;
             var market = new Market(Currency.BTC, Currency.USD);
 
-            var buyLimitOrder =
-                new LimitOrder(Side.Buy, quantityForLimitOrder, priceForLimitOrder);
+            var otherSide = OtherSide(side);
+
+            var limitOrder =
+                new LimitOrder(otherSide, quantityForLimitOrder, priceForLimitOrder);
             var exchangeToSell =
-                Limit_order_is_accepted_by_empty_exchange(buyLimitOrder, market);
+                Limit_order_is_accepted_by_empty_exchange(limitOrder, market);
 
-            var sellMarketOrder =
-                new MarketOrder(Side.Sell, quantityForMarketOrder);
+            var marketOrder =
+                new MarketOrder(side, quantityForMarketOrder);
             Assert.Throws<LiquidityProblem>(() => {
-                exchangeToSell.SendMarketOrder(sellMarketOrder, market);
+                exchangeToSell.SendMarketOrder(marketOrder, market);
             });
 
-            var btcUsdOrderBookAfterException1 = exchangeToSell[market];
-            Assert.That(btcUsdOrderBookAfterException1[Side.Sell].Count(),
+            var btcUsdOrderBookAfterException = exchangeToSell[market];
+            Assert.That(btcUsdOrderBookAfterException[side].Count(),
                         Is.EqualTo(0));
-            Assert.That(btcUsdOrderBookAfterException1[Side.Buy].Count(),
+            Assert.That(btcUsdOrderBookAfterException[otherSide].Count(),
                         Is.EqualTo(1));
-            var uniqueLimitOrder1 =
-                btcUsdOrderBookAfterException1[Side.Buy].ElementAt(0);
-            Assert.That(uniqueLimitOrder1.Side, Is.EqualTo(Side.Buy));
-            Assert.That(uniqueLimitOrder1.Price,
-                        Is.EqualTo(buyLimitOrder.Price));
-            Assert.That(uniqueLimitOrder1.Quantity,
-                        Is.EqualTo(buyLimitOrder.Quantity));
+            var uniqueLimitOrder =
+                btcUsdOrderBookAfterException[otherSide].ElementAt(0);
+            Assert.That(uniqueLimitOrder.Side, Is.EqualTo(otherSide));
+            Assert.That(uniqueLimitOrder.Price,
+                        Is.EqualTo(limitOrder.Price));
+            Assert.That(uniqueLimitOrder.Quantity,
+                        Is.EqualTo(limitOrder.Quantity));
+        }
 
-            var sellLimitOrder =
-                new LimitOrder(Side.Sell, quantityForLimitOrder, priceForLimitOrder);
-            var exchangeToBuy =
-                Limit_order_is_accepted_by_empty_exchange(sellLimitOrder, market);
-            var buyMarketOrder =
-                new MarketOrder(Side.Buy, quantityForMarketOrder);
-            Assert.Throws<LiquidityProblem>(() => {
-                exchangeToBuy.SendMarketOrder(sellMarketOrder, market);
-            });
+        [Test]
+        public void Market_order_throw_on_exchange_with_not_enough_liquidity_in_limit_orders_and_orderbooks_are_left_intact()
+        {
+            Market_order_throw_on_exchange_with_not_enough_liquidity_in_limit_orders_and_orderbooks_are_left_intact(Side.Sell);
 
-            var btcUsdOrderBookAfterException2 = exchangeToBuy[market];
-            Assert.That(btcUsdOrderBookAfterException2[Side.Buy].Count(),
-                        Is.EqualTo(0));
-            Assert.That(btcUsdOrderBookAfterException2[Side.Sell].Count(),
-                        Is.EqualTo(1));
-            var uniqueLimitOrder2 =
-                btcUsdOrderBookAfterException2[Side.Sell].ElementAt(0);
-            Assert.That(uniqueLimitOrder2.Side, Is.EqualTo(Side.Sell));
-            Assert.That(uniqueLimitOrder2.Price,
-                        Is.EqualTo(buyLimitOrder.Price));
-            Assert.That(uniqueLimitOrder2.Quantity,
-                        Is.EqualTo(buyLimitOrder.Quantity));
+            Market_order_throw_on_exchange_with_not_enough_liquidity_in_limit_orders_and_orderbooks_are_left_intact(Side.Buy);
         }
     }
 }
