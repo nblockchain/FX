@@ -211,5 +211,44 @@ namespace FsharpExchange.Tests
             Market_order_matches_with_more_than_one_limit_order(Side.Buy);
         }
 
+        private void Market_order_partial_match_on_exchange_with_one_limit_order(Side side)
+        {
+            var quantityForLimitOrder = 2;
+            var quantityForMarketOrder = quantityForLimitOrder / 2;
+            var priceForLimitOrder = 10000;
+            var market = new Market(Currency.BTC, Currency.USD);
+
+            var otherSide = side.Other();
+
+            var limitOrder =
+                new LimitOrder(side, quantityForLimitOrder, priceForLimitOrder);
+            var exchange =
+                LimitOrders.Limit_order_is_accepted_by_empty_exchange(limitOrder, market);
+
+            var marketOrder = new MarketOrder(otherSide, quantityForMarketOrder);
+            exchange.SendMarketOrder(marketOrder, market);
+            var btcUsdOrderBookAfterMatching = exchange[market];
+            Assert.That(btcUsdOrderBookAfterMatching[otherSide].Count(),
+                        Is.EqualTo(0));
+            Assert.That(btcUsdOrderBookAfterMatching[side].Count(),
+                        Is.EqualTo(1));
+            var limitOrderLeftAfterPartialMatch =
+                btcUsdOrderBookAfterMatching[side].ElementAt(0);
+            Assert.That(limitOrderLeftAfterPartialMatch.Side, Is.EqualTo(side));
+            Assert.That(limitOrderLeftAfterPartialMatch.Price,
+                        Is.EqualTo(limitOrder.Price));
+            Assert.That(limitOrderLeftAfterPartialMatch.Quantity,
+                        Is.EqualTo(quantityForLimitOrder - quantityForMarketOrder));
+        }
+
+        [Test]
+        [Ignore("Doesn't work yet")]
+        public void Market_order_partial_match_on_exchange_with_one_limit_order()
+        {
+            Market_order_partial_match_on_exchange_with_one_limit_order(Side.Buy);
+
+            Market_order_partial_match_on_exchange_with_one_limit_order(Side.Sell);
+        }
+
     }
 }
