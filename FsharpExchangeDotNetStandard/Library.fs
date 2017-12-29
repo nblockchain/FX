@@ -25,7 +25,7 @@ type internal Order =
 type OrderBookSide =
     list<LimitOrder>
 
-type OrderBook(buySide:OrderBookSide, sellSide:OrderBookSide) =
+type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
 
     let Match (marketOrder: MarketOrder) (orderBookSide: OrderBookSide): OrderBookSide =
         match orderBookSide with
@@ -43,21 +43,21 @@ type OrderBook(buySide:OrderBookSide, sellSide:OrderBookSide) =
         | Limit(limitOrder) ->
             match limitOrder.Side with
             | Side.Buy ->
-                OrderBook(limitOrder::buySide, sellSide)
+                OrderBook(limitOrder::bidSide, askSide)
             | Side.Sell ->
-                OrderBook(buySide, limitOrder::sellSide)
+                OrderBook(bidSide, limitOrder::askSide)
         | Market(marketOrder) ->
             match marketOrder.Side with
             | Side.Buy ->
-                OrderBook(buySide, Match marketOrder sellSide)
+                OrderBook(bidSide, Match marketOrder askSide)
             | Side.Sell ->
-                OrderBook(Match marketOrder buySide, sellSide)
+                OrderBook(Match marketOrder bidSide, askSide)
 
     member x.Item
         with get (side: Side) =
             match side with
-            | Side.Buy -> buySide
-            | Side.Sell -> sellSide
+            | Side.Buy -> bidSide
+            | Side.Sell -> askSide
 
 type public Market =
     { BuyCurrency: Currency; SellCurrency: Currency }
