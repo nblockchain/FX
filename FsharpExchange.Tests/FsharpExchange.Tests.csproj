@@ -34,7 +34,8 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Test.cs" />
+    <Compile Include="LimitOrders.cs" />
+    <Compile Include="MarketOrders.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

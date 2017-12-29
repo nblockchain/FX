@@ -11,6 +11,10 @@ type public Currency =
 type Side =
     | Buy
     | Sell
+    member self.Other() =
+        match self with
+        | Side.Buy -> Side.Sell
+        | Side.Sell -> Side.Buy
 
 type LimitOrder =
     { Side: Side; Quantity: decimal; Price: decimal }
