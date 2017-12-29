@@ -31,12 +31,12 @@ type OrderBookSide =
 
 type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
 
-    let Match (marketOrder: MarketOrder) (orderBookSide: OrderBookSide): OrderBookSide =
+    let rec Match (quantityLeftToMatch: decimal) (orderBookSide: OrderBookSide): OrderBookSide =
         match orderBookSide with
         | [] -> raise LiquidityProblem
         | firstLimitOrder::tail ->
-            if (marketOrder.Quantity > firstLimitOrder.Quantity) then
-                raise LiquidityProblem
+            if (quantityLeftToMatch > firstLimitOrder.Quantity) then
+                Match (quantityLeftToMatch - firstLimitOrder.Quantity) tail
             else
                 tail
 
@@ -53,9 +53,9 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
         | Market(marketOrder) ->
             match marketOrder.Side with
             | Side.Buy ->
-                OrderBook(bidSide, Match marketOrder askSide)
+                OrderBook(bidSide, Match marketOrder.Quantity askSide)
             | Side.Sell ->
-                OrderBook(Match marketOrder bidSide, askSide)
+                OrderBook(Match marketOrder.Quantity bidSide, askSide)
 
     member x.Item
         with get (side: Side) =
