@@ -10,7 +10,7 @@ namespace FsharpExchange.Tests
     [TestFixture]
     public class MarketOrders
     {
-        private void Market_order_match_on_exchange_with_one_limit_order(Side side)
+        private void Market_order_exact_match_on_exchange_with_one_limit_order(Side side)
         {
             var quantity = 1;
             var priceForLimitOrder = 10000;
@@ -33,11 +33,11 @@ namespace FsharpExchange.Tests
         }
 
         [Test]
-        public void Market_order_match_on_exchange_with_one_limit_order()
+        public void Market_order_exact_match_on_exchange_with_one_limit_order()
         {
-            Market_order_match_on_exchange_with_one_limit_order(Side.Buy);
+            Market_order_exact_match_on_exchange_with_one_limit_order(Side.Buy);
 
-            Market_order_match_on_exchange_with_one_limit_order(Side.Sell);
+            Market_order_exact_match_on_exchange_with_one_limit_order(Side.Sell);
         }
 
         private void Market_order_throws_on_exchange_with_no_limit_orders_and_orderbooks_are_left_intact(Side side)
@@ -168,6 +168,47 @@ namespace FsharpExchange.Tests
             Market_order_throws_on_exchange_with_not_enough_liquidity_in_limit_orders_and_orderbooks_are_left_intact(Side.Sell);
 
             Market_order_throws_on_exchange_with_not_enough_liquidity_in_limit_orders_and_orderbooks_are_left_intact(Side.Buy);
+        }
+
+        private void Market_order_matches_with_more_than_one_limit_order(Side side)
+        {
+            var quantityForLimitOrder1 = 1;
+            var quantityForLimitOrder2 = 1;
+
+            // to make the exchange run out of funds:
+            var quantityForMarketOrder = quantityForLimitOrder1 + quantityForLimitOrder2;
+
+            var priceForLimitOrder = 10000;
+            var market = new Market(Currency.BTC, Currency.USD);
+
+            var otherSide = side.Other();
+
+            var limitOrder1 =
+                new LimitOrder(otherSide, quantityForLimitOrder1, priceForLimitOrder);
+            var exchange =
+                LimitOrders.Limit_order_is_accepted_by_empty_exchange(limitOrder1, market);
+            var limitOrder2 =
+                new LimitOrder(otherSide, quantityForLimitOrder2, priceForLimitOrder);
+            exchange.SendLimitOrder(limitOrder2, market);
+
+            var marketOrder =
+                new MarketOrder(side, quantityForMarketOrder);
+
+            exchange.SendMarketOrder(marketOrder, market);
+
+            var btcUsdOrderBookAfterException = exchange[market];
+            Assert.That(btcUsdOrderBookAfterException[side].Count(),
+                        Is.EqualTo(0));
+            Assert.That(btcUsdOrderBookAfterException[otherSide].Count(),
+                        Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Market_order_matches_with_more_than_one_limit_order()
+        {
+            Market_order_matches_with_more_than_one_limit_order(Side.Sell);
+
+            Market_order_matches_with_more_than_one_limit_order(Side.Buy);
         }
 
     }
