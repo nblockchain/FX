@@ -52,5 +52,38 @@ namespace FsharpExchange.Tests
             var sellOrder = new LimitOrder(Side.Sell, quantity, price);
             Limit_order_is_accepted_by_empty_exchange(sellOrder, market);
         }
+
+        private static void Limit_order_can_cross_another_limit_order_of_same_amount
+            (Side side)
+        {
+            var quantity = 1;
+            var price = 10000;
+            var market = new Market(Currency.BTC, Currency.USD);
+
+            var exchange = new Exchange();
+
+            // first make sure exchange's orderbook is empty
+            var orderBook = exchange[market];
+
+            var firstLimitOrder = new LimitOrder(side, quantity, price);
+            exchange.SendLimitOrder(firstLimitOrder, market);
+
+            var secondLimitMatchingOrder =
+                new LimitOrder(side.Other(), quantity, price);
+            exchange.SendLimitOrder(secondLimitMatchingOrder, market);
+
+            var orderBookAgain = exchange[market];
+            Assert.That(orderBookAgain[side].Count(), Is.EqualTo(0));
+            Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
+        }
+
+        [Test]
+        [Ignore("Not working yet")]
+        public void Limit_order_can_cross_another_limit_order_of_same_amount()
+        {
+            Limit_order_can_cross_another_limit_order_of_same_amount(Side.Buy);
+
+            Limit_order_can_cross_another_limit_order_of_same_amount(Side.Sell);
+        }
     }
 }
