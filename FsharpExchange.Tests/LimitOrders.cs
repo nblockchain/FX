@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 using FsharpExchangeDotNetStandard;
@@ -51,6 +52,84 @@ namespace FsharpExchange.Tests
 
             var sellOrder = new LimitOrder(Side.Sell, quantity, price);
             Limit_order_is_accepted_by_empty_exchange(sellOrder, market);
+        }
+
+        private static void AssertAreSameOrdersRegardlessOfOrder
+            (ICollection<LimitOrder> a,
+             ICollection<LimitOrder> b)
+        {
+            Assert.That(a.Count, Is.EqualTo(b.Count));
+
+            if (a.Count > 0)
+            {
+                var first = a.First();
+
+                LimitOrder otherEquivalentFound = null;
+                foreach(var otherOrderInB in b)
+                {
+                    if (first.Side != otherOrderInB.Side)
+                        throw new Exception("Something went very wrong, it seems we're comparing a Bid orderBookSide with an Ask one?");
+
+                    if (first.Price == otherOrderInB.Price &&
+                        first.Quantity == otherOrderInB.Quantity)
+                    {
+                        otherEquivalentFound = otherOrderInB;
+                        break;
+                    }
+                }
+                if (otherEquivalentFound == null)
+                {
+                    throw new Exception($"Order with price {first.Price} and quantity {first.Quantity} not found on the other side");
+                }
+
+                var newA = new List<LimitOrder>(a);
+                newA.Remove(first);
+                var newB = new List<LimitOrder>(b);
+                newB.Remove(otherEquivalentFound);
+                AssertAreSameOrdersRegardlessOfOrder(newA, newB);
+            }
+        }
+
+        private static void Limit_orders_of_same_side_never_match(Side side)
+        {
+            var quantity = 1;
+            var price = 10000;
+            var secondAndThirdPrice = price + 1;
+            var market = new Market(Currency.BTC, Currency.USD);
+
+            var exchange = new Exchange();
+
+            // first make sure exchange's orderbook is empty
+            var orderBook = exchange[market];
+
+            var firstLimitOrder = new LimitOrder(side, quantity, price);
+            exchange.SendLimitOrder(firstLimitOrder, market);
+
+            var secondLimitOrder =
+                new LimitOrder(side, quantity, secondAndThirdPrice);
+            exchange.SendLimitOrder(secondLimitOrder, market);
+
+            var thirdLimitOrder =
+                new LimitOrder(side, quantity, secondAndThirdPrice);
+            exchange.SendLimitOrder(secondLimitOrder, market);
+
+            var allLimitOrdersSent = new List<LimitOrder> {
+                firstLimitOrder, secondLimitOrder, thirdLimitOrder
+            };
+
+            var orderBookAgain = exchange[market];
+
+            Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
+            var ourSide = new List<LimitOrder>(orderBookAgain[side]);
+            AssertAreSameOrdersRegardlessOfOrder(allLimitOrdersSent, ourSide);
+        }
+
+        [Test]
+        public void Limit_orders_of_same_side_never_match()
+        {
+            Limit_orders_of_same_side_never_match(Side.Buy);
+
+            Limit_orders_of_same_side_never_match(Side.Sell);
         }
 
         private static void Limit_orders_of_different_price_dont_match
