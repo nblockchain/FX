@@ -22,7 +22,7 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
             match askSide with
             | [] -> OrderBook(limitOrder::bidSide, askSide)
             | firstSellLimitOrder::restOfAskSide ->
-                if (firstSellLimitOrder.Price = limitOrder.Price) then
+                if (firstSellLimitOrder.Price <= limitOrder.Price) then
                     OrderBook(bidSide, restOfAskSide)
                 else
                     OrderBook(limitOrder::bidSide, askSide)
@@ -30,7 +30,7 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
             match bidSide with
             | [] -> OrderBook(bidSide, limitOrder::askSide)
             | firstBuyLimitOrder::restOfBidSide ->
-                if (firstBuyLimitOrder.Price = limitOrder.Price) then
+                if (firstBuyLimitOrder.Price >= limitOrder.Price) then
                     OrderBook(restOfBidSide, askSide)
                 else
                     OrderBook(bidSide, limitOrder::askSide)

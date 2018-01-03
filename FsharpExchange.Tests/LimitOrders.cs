@@ -239,7 +239,6 @@ namespace FsharpExchange.Tests
         }
 
         [Test] // they match at the price of the original order
-        [Ignore("doesn't work yet")]
         public void Limit_orders_of_different_sides_and_different_price_can_match()
         {
             Limit_orders_of_different_sides_and_different_price_can_match(Side.Buy);
