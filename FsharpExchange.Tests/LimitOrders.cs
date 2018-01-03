@@ -127,7 +127,6 @@ namespace FsharpExchange.Tests
         }
 
         [Test]
-        [Ignore("Not working yet")]
         public void Limit_order_can_cross_another_limit_order_of_same_amount()
         {
             Limit_order_can_cross_another_limit_order_of_same_amount(Side.Buy);

@@ -31,12 +31,12 @@ type OrderBookSide =
 
 type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
 
-    let rec Match (quantityLeftToMatch: decimal) (orderBookSide: OrderBookSide): OrderBookSide =
+    let rec MatchMarket (quantityLeftToMatch: decimal) (orderBookSide: OrderBookSide): OrderBookSide =
         match orderBookSide with
         | [] -> raise LiquidityProblem
         | firstLimitOrder::tail ->
             if (quantityLeftToMatch > firstLimitOrder.Quantity) then
-                Match (quantityLeftToMatch - firstLimitOrder.Quantity) tail
+                MatchMarket (quantityLeftToMatch - firstLimitOrder.Quantity) tail
             elif (quantityLeftToMatch = firstLimitOrder.Quantity) then
                 tail
             else //if (quantityLeftToMatch < firstLimitOrder.Quantity)
@@ -45,22 +45,37 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
                                              Quantity = firstLimitOrder.Quantity - quantityLeftToMatch }
                 newPartialLimitOrder::tail
 
+    let rec MatchLimits (limitOrder: LimitOrder) (orderBookSide: OrderBook): OrderBook =
+        match limitOrder.Side with
+        | Side.Buy ->
+            match askSide with
+            | [] -> OrderBook(limitOrder::bidSide, askSide)
+            | firstSellLimitOrder::restOfAskSide ->
+                if (firstSellLimitOrder.Price = limitOrder.Price) then
+                    OrderBook(bidSide, restOfAskSide)
+                else
+                    OrderBook(limitOrder::bidSide, askSide)
+        | Side.Sell ->
+            match bidSide with
+            | [] -> OrderBook(bidSide, limitOrder::askSide)
+            | firstBuyLimitOrder::restOfBidSide ->
+                if (firstBuyLimitOrder.Price = limitOrder.Price) then
+                    OrderBook(restOfBidSide, askSide)
+                else
+                    OrderBook(bidSide, limitOrder::askSide)
+
     new() = OrderBook([], [])
 
-    member internal x.InsertOrder (order: Order): OrderBook =
+    member internal this.InsertOrder (order: Order): OrderBook =
         match order with
         | Limit(limitOrder) ->
-            match limitOrder.Side with
-            | Side.Buy ->
-                OrderBook(limitOrder::bidSide, askSide)
-            | Side.Sell ->
-                OrderBook(bidSide, limitOrder::askSide)
+            MatchLimits limitOrder this
         | Market(marketOrder) ->
             match marketOrder.Side with
             | Side.Buy ->
-                OrderBook(bidSide, Match marketOrder.Quantity askSide)
+                OrderBook(bidSide, MatchMarket marketOrder.Quantity askSide)
             | Side.Sell ->
-                OrderBook(Match marketOrder.Quantity bidSide, askSide)
+                OrderBook(MatchMarket marketOrder.Quantity bidSide, askSide)
 
     member x.Item
         with get (side: Side) =
