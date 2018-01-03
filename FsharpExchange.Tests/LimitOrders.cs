@@ -212,5 +212,39 @@ namespace FsharpExchange.Tests
 
             Limit_order_can_cross_another_limit_order_of_same_amount_and_same_price(Side.Sell);
         }
+
+        private static void Limit_orders_of_different_sides_and_different_price_can_match
+            (Side side)
+        {
+            var quantity = 1;
+            var price = 1000;
+            var opposingPrice = side == Side.Buy ? price - 1 : price + 1;
+            var market = new Market(Currency.BTC, Currency.USD);
+
+            var exchange = new Exchange();
+
+            var orderBook = exchange[market];
+
+            var firstLimitOrder = new LimitOrder(side, quantity, price);
+            exchange.SendLimitOrder(firstLimitOrder, market);
+
+            var secondLimitOrder =
+                new LimitOrder(side.Other(), quantity, opposingPrice);
+            exchange.SendLimitOrder(secondLimitOrder, market);
+
+            var orderBookAgain = exchange[market];
+
+            Assert.That(orderBookAgain[side].Count(), Is.EqualTo(0));
+            Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
+        }
+
+        [Test] // they match at the price of the original order
+        [Ignore("doesn't work yet")]
+        public void Limit_orders_of_different_sides_and_different_price_can_match()
+        {
+            Limit_orders_of_different_sides_and_different_price_can_match(Side.Buy);
+
+            Limit_orders_of_different_sides_and_different_price_can_match(Side.Sell);
+        }
     }
 }
