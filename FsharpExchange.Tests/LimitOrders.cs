@@ -53,6 +53,55 @@ namespace FsharpExchange.Tests
             Limit_order_is_accepted_by_empty_exchange(sellOrder, market);
         }
 
+        private static void Limit_orders_of_different_price_dont_match
+            (Side side)
+        {
+            var quantity = 1;
+            var price = 10000;
+            var opposingPrice = side == Side.Buy ? price + 1 : price - 1;
+            var market = new Market(Currency.BTC, Currency.USD);
+
+            var exchange = new Exchange();
+
+            // first make sure exchange's orderbook is empty
+            var orderBook = exchange[market];
+
+            var firstLimitOrder = new LimitOrder(side, quantity, price);
+            exchange.SendLimitOrder(firstLimitOrder, market);
+
+            var secondLimitOrder =
+                new LimitOrder(side.Other(), quantity, opposingPrice);
+            exchange.SendLimitOrder(secondLimitOrder, market);
+
+            var orderBookAgain = exchange[market];
+
+            Assert.That(orderBookAgain[side].Count(), Is.EqualTo(1));
+            var aLimitOrder = orderBookAgain[side].ElementAt(0);
+            Assert.That(aLimitOrder.Side,
+                        Is.EqualTo(firstLimitOrder.Side));
+            Assert.That(aLimitOrder.Price,
+                        Is.EqualTo(firstLimitOrder.Price));
+            Assert.That(aLimitOrder.Quantity,
+                        Is.EqualTo(firstLimitOrder.Quantity));
+
+            Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(1));
+            var anotherLimitOrder = orderBookAgain[side.Other()].ElementAt(0);
+            Assert.That(anotherLimitOrder.Side,
+                        Is.EqualTo(secondLimitOrder.Side));
+            Assert.That(anotherLimitOrder.Price,
+                        Is.EqualTo(secondLimitOrder.Price));
+            Assert.That(anotherLimitOrder.Quantity,
+                        Is.EqualTo(secondLimitOrder.Quantity));
+        }
+
+        [Test]
+        public void Limit_orders_of_different_price_dont_match()
+        {
+            Limit_orders_of_different_price_dont_match(Side.Buy);
+
+            Limit_orders_of_different_price_dont_match(Side.Sell);
+        }
+
         private static void Limit_order_can_cross_another_limit_order_of_same_amount
             (Side side)
         {
