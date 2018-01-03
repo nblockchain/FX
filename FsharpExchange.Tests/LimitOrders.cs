@@ -132,7 +132,7 @@ namespace FsharpExchange.Tests
             Limit_orders_of_same_side_never_match(Side.Sell);
         }
 
-        private static void Limit_orders_of_different_price_dont_match
+        private static void Limit_orders_of_different_sides_but_different_price_dont_match
             (Side side)
         {
             var quantity = 1;
@@ -174,14 +174,14 @@ namespace FsharpExchange.Tests
         }
 
         [Test]
-        public void Limit_orders_of_different_price_dont_match()
+        public void Limit_orders_of_different_sides_but_different_price_dont_match()
         {
-            Limit_orders_of_different_price_dont_match(Side.Buy);
+            Limit_orders_of_different_sides_but_different_price_dont_match(Side.Buy);
 
-            Limit_orders_of_different_price_dont_match(Side.Sell);
+            Limit_orders_of_different_sides_but_different_price_dont_match(Side.Sell);
         }
 
-        private static void Limit_order_can_cross_another_limit_order_of_same_amount
+        private static void Limit_order_can_cross_another_limit_order_of_same_amount_and_same_price
             (Side side)
         {
             var quantity = 1;
@@ -206,11 +206,11 @@ namespace FsharpExchange.Tests
         }
 
         [Test]
-        public void Limit_order_can_cross_another_limit_order_of_same_amount()
+        public void Limit_order_can_cross_another_limit_order_of_same_amount_and_same_price()
         {
-            Limit_order_can_cross_another_limit_order_of_same_amount(Side.Buy);
+            Limit_order_can_cross_another_limit_order_of_same_amount_and_same_price(Side.Buy);
 
-            Limit_order_can_cross_another_limit_order_of_same_amount(Side.Sell);
+            Limit_order_can_cross_another_limit_order_of_same_amount_and_same_price(Side.Sell);
         }
     }
 }
