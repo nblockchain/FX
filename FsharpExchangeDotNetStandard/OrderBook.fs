@@ -39,23 +39,23 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
         else
             None
 
-    let rec MatchLimits (limitOrder: LimitOrder) (orderBookSide: OrderBook): OrderBook =
-        match limitOrder.Side with
+    let rec MatchLimit (incomingOrder: LimitOrder) (orderBookSide: OrderBook): OrderBook =
+        match incomingOrder.Side with
         | Side.Buy ->
             match askSide with
-            | [] -> OrderBook(limitOrder::bidSide, askSide)
+            | [] -> OrderBook(incomingOrder::bidSide, askSide)
             | firstSellLimitOrder::restOfAskSide ->
-                let maybeMatchingResultSide = MatchLimitOrders firstSellLimitOrder limitOrder restOfAskSide
+                let maybeMatchingResultSide = MatchLimitOrders firstSellLimitOrder incomingOrder restOfAskSide
                 match maybeMatchingResultSide with
-                | None -> OrderBook(limitOrder::bidSide, askSide)
+                | None -> OrderBook(incomingOrder::bidSide, askSide)
                 | Some(newAskSide) -> OrderBook(bidSide, newAskSide)
         | Side.Sell ->
             match bidSide with
-            | [] -> OrderBook(bidSide, limitOrder::askSide)
+            | [] -> OrderBook(bidSide, incomingOrder::askSide)
             | firstBuyLimitOrder::restOfBidSide ->
-                let maybeMatchingResultSide = MatchLimitOrders firstBuyLimitOrder limitOrder restOfBidSide
+                let maybeMatchingResultSide = MatchLimitOrders firstBuyLimitOrder incomingOrder restOfBidSide
                 match maybeMatchingResultSide with
-                | None -> OrderBook(bidSide, limitOrder::askSide)
+                | None -> OrderBook(bidSide, incomingOrder::askSide)
                 | Some(newBidSide) -> OrderBook(newBidSide, askSide)
 
     new() = OrderBook([], [])
@@ -63,7 +63,7 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
     member internal this.InsertOrder (order: Order): OrderBook =
         match order with
         | Limit(limitOrder) ->
-            MatchLimits limitOrder this
+            MatchLimit limitOrder this
         | Market(marketOrder) ->
             match marketOrder.Side with
             | Side.Buy ->
