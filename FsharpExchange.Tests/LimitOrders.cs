@@ -323,5 +323,47 @@ namespace FsharpExchange.Tests
 
             Limit_order_crosses_two_limit_orders_of_same_price(Side.Sell);
         }
+
+        private static void Limit_order_crosses_one_limit_order_and_stays_partially_after_no_more_liquidity_left_in_one_side(Side side)
+        {
+            var quantityOfThePreviouslySittingOrder = 1;
+            var quantityOfIncomingOrder = quantityOfThePreviouslySittingOrder + 1;
+            var price = 10000;
+            var market = new Market(Currency.BTC, Currency.USD);
+
+            var exchange = new Exchange();
+
+            // first make sure exchange's orderbook is empty
+            var orderBook = exchange[market];
+
+            var firstLimitOrder =
+                new LimitOrder(side, quantityOfThePreviouslySittingOrder, price);
+            exchange.SendLimitOrder(firstLimitOrder, market);
+
+            var incomingLimitMatchingOrder =
+                new LimitOrder(side.Other(), quantityOfIncomingOrder, price);
+            exchange.SendLimitOrder(incomingLimitMatchingOrder, market);
+
+            var orderBookAgain = exchange[market];
+            Assert.That(orderBookAgain[side].Count(), Is.EqualTo(0));
+            Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(1));
+
+            var leftOverLimitOrder = orderBookAgain[side.Other()].ElementAt(0);
+            Assert.That(leftOverLimitOrder.Side,
+                        Is.EqualTo(incomingLimitMatchingOrder.Side));
+            Assert.That(leftOverLimitOrder.Price,
+                        Is.EqualTo(price));
+            Assert.That(leftOverLimitOrder.Quantity,
+                        Is.EqualTo(quantityOfIncomingOrder - quantityOfThePreviouslySittingOrder));
+        }
+
+        [Test]
+        [Ignore("Not working yet, FIXME!")]
+        public void Limit_order_crosses_one_limit_order_and_stays_partially_after_no_more_liquidity_left_in_one_side()
+        {
+            Limit_order_crosses_one_limit_order_and_stays_partially_after_no_more_liquidity_left_in_one_side(Side.Buy);
+
+            Limit_order_crosses_one_limit_order_and_stays_partially_after_no_more_liquidity_left_in_one_side(Side.Sell);
+        }
     }
 }

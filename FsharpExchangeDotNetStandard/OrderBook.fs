@@ -40,7 +40,7 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
                       Price = incomingOrder.Price;
                       Quantity = incomingOrder.Quantity - orderInBook.Quantity }
                 match restOfBookSide with
-                | [] -> failwith "not implemented yet!" // <- FIXME!: write test for this case
+                | [] -> failwith "not implemented yet!" // the test covering this case is marked as ignored(not working)
                 | secondLimitOrder::secondTail ->
                     MatchLimitOrders secondLimitOrder partialRemainingIncomingLimitOrder secondTail
         else
