@@ -16,7 +16,7 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
                                              Quantity = firstLimitOrder.Quantity - quantityLeftToMatch }
                 newPartialLimitOrder::tail
 
-    let MatchLimitOrders (orderInBook: LimitOrder) (incomingOrder: LimitOrder) (restOfBookSide: OrderBookSide)
+    let rec MatchLimitOrders (orderInBook: LimitOrder) (incomingOrder: LimitOrder) (restOfBookSide: OrderBookSide)
                        : Option<OrderBookSide> =
         if (orderInBook.Side = incomingOrder.Side) then
             failwith "Failed assertion: MatchLimitOrders() should not receive orders of same side"
@@ -34,8 +34,15 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
                                                    Price = orderInBook.Price;
                                                    Quantity = orderInBook.Quantity - incomingOrder.Quantity }
                 Some(partialRemainingLimitOrder::restOfBookSide)
-            else //if (firstBuyLimitOrder.Quantity < limitOrder.Quantity) <- FIXME!: write test for this case
-                failwith "Not implemented yet"
+            else //if (orderInBook.Quantity < incomingOrder.Quantity)
+                let partialRemainingIncomingLimitOrder =
+                    { Side = incomingOrder.Side;
+                      Price = incomingOrder.Price;
+                      Quantity = incomingOrder.Quantity - orderInBook.Quantity }
+                match restOfBookSide with
+                | [] -> failwith "not implemented yet!" // <- FIXME!: write test for this case
+                | secondLimitOrder::secondTail ->
+                    MatchLimitOrders secondLimitOrder partialRemainingIncomingLimitOrder secondTail
         else
             None
 
