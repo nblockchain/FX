@@ -280,7 +280,6 @@ namespace FsharpExchange.Tests
         }
 
         [Test]
-        [Ignore("doesn't work yet")]
         public void Limit_order_half_crosses_another_limit_order_of_same_price()
         {
             Limit_order_half_crosses_another_limit_order_of_same_price(Side.Buy);
