@@ -358,7 +358,6 @@ namespace FsharpExchange.Tests
         }
 
         [Test]
-        [Ignore("Not working yet, FIXME!")]
         public void Limit_order_crosses_one_limit_order_and_stays_partially_after_no_more_liquidity_left_in_one_side()
         {
             Limit_order_crosses_one_limit_order_and_stays_partially_after_no_more_liquidity_left_in_one_side(Side.Buy);

@@ -1,5 +1,10 @@
 namespace FsharpExchangeDotNetStandard
 
+type MatchLeftOver =
+    | NoMatch
+    | UnmatchedLimitOrderLeftOverAfterPartialMatch of LimitOrder
+    | SideLeftAfterFullMatch of OrderBookSide
+
 type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
 
     let rec MatchMarket (quantityLeftToMatch: decimal) (orderBookSide: OrderBookSide): OrderBookSide =
@@ -17,7 +22,7 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
                 newPartialLimitOrder::tail
 
     let rec MatchLimitOrders (orderInBook: LimitOrder) (incomingOrder: LimitOrder) (restOfBookSide: OrderBookSide)
-                       : Option<OrderBookSide> =
+                       : MatchLeftOver =
         if (orderInBook.Side = incomingOrder.Side) then
             failwith "Failed assertion: MatchLimitOrders() should not receive orders of same side"
 
@@ -28,23 +33,24 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
 
         if (matches) then
             if (orderInBook.Quantity = incomingOrder.Quantity) then
-                Some(restOfBookSide)
+                SideLeftAfterFullMatch(restOfBookSide)
             elif (orderInBook.Quantity > incomingOrder.Quantity) then
                 let partialRemainingLimitOrder = { Side = orderInBook.Side;
                                                    Price = orderInBook.Price;
                                                    Quantity = orderInBook.Quantity - incomingOrder.Quantity }
-                Some(partialRemainingLimitOrder::restOfBookSide)
+                SideLeftAfterFullMatch(partialRemainingLimitOrder::restOfBookSide)
             else //if (orderInBook.Quantity < incomingOrder.Quantity)
                 let partialRemainingIncomingLimitOrder =
                     { Side = incomingOrder.Side;
                       Price = incomingOrder.Price;
                       Quantity = incomingOrder.Quantity - orderInBook.Quantity }
                 match restOfBookSide with
-                | [] -> failwith "not implemented yet!" // the test covering this case is marked as ignored(not working)
+                | [] ->
+                    UnmatchedLimitOrderLeftOverAfterPartialMatch(partialRemainingIncomingLimitOrder)
                 | secondLimitOrder::secondTail ->
                     MatchLimitOrders secondLimitOrder partialRemainingIncomingLimitOrder secondTail
         else
-            None
+            NoMatch
 
     let rec MatchLimit (incomingOrder: LimitOrder) (orderBookSide: OrderBook): OrderBook =
         match incomingOrder.Side with
@@ -54,16 +60,18 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
             | firstSellLimitOrder::restOfAskSide ->
                 let maybeMatchingResultSide = MatchLimitOrders firstSellLimitOrder incomingOrder restOfAskSide
                 match maybeMatchingResultSide with
-                | None -> OrderBook(incomingOrder::bidSide, askSide)
-                | Some(newAskSide) -> OrderBook(bidSide, newAskSide)
+                | NoMatch -> OrderBook(incomingOrder::bidSide, askSide)
+                | SideLeftAfterFullMatch(newAskSide) -> OrderBook(bidSide, newAskSide)
+                | UnmatchedLimitOrderLeftOverAfterPartialMatch(leftOverOrder) -> OrderBook(leftOverOrder::bidSide, [])
         | Side.Sell ->
             match bidSide with
             | [] -> OrderBook(bidSide, incomingOrder::askSide)
             | firstBuyLimitOrder::restOfBidSide ->
                 let maybeMatchingResultSide = MatchLimitOrders firstBuyLimitOrder incomingOrder restOfBidSide
                 match maybeMatchingResultSide with
-                | None -> OrderBook(bidSide, incomingOrder::askSide)
-                | Some(newBidSide) -> OrderBook(newBidSide, askSide)
+                | NoMatch -> OrderBook(bidSide, incomingOrder::askSide)
+                | SideLeftAfterFullMatch(newBidSide) -> OrderBook(newBidSide, askSide)
+                | UnmatchedLimitOrderLeftOverAfterPartialMatch(leftOverOrder) -> OrderBook([], leftOverOrder::askSide)
 
     new() = OrderBook([], [])
 
