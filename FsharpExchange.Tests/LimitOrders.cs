@@ -286,5 +286,43 @@ namespace FsharpExchange.Tests
 
             Limit_order_half_crosses_another_limit_order_of_same_price(Side.Sell);
         }
+
+        private static void Limit_order_crosses_two_limit_orders_of_same_price (Side side)
+        {
+            var quantityOfEachOfTheSittingOrders = 1;
+            var quantityOfIncomingOrder = quantityOfEachOfTheSittingOrders * 2;
+            var price = 10000;
+            var market = new Market(Currency.BTC, Currency.USD);
+
+            var exchange = new Exchange();
+
+            // first make sure exchange's orderbook is empty
+            var orderBook = exchange[market];
+
+            var firstLimitOrder =
+                new LimitOrder(side, quantityOfEachOfTheSittingOrders, price);
+            exchange.SendLimitOrder(firstLimitOrder, market);
+
+            var secondLimitMatchingOrder =
+                new LimitOrder(side, quantityOfEachOfTheSittingOrders, price);
+            exchange.SendLimitOrder(secondLimitMatchingOrder, market);
+
+            var incomingLimitMatchingOrder =
+                new LimitOrder(side.Other(), quantityOfIncomingOrder, price);
+            exchange.SendLimitOrder(incomingLimitMatchingOrder, market);
+
+            var orderBookAgain = exchange[market];
+            Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
+            Assert.That(orderBookAgain[side].Count(), Is.EqualTo(0));
+        }
+
+        [Test]
+        [Ignore("doesn't work yet")]
+        public void Limit_order_crosses_two_limit_orders_of_same_price()
+        {
+            Limit_order_crosses_two_limit_orders_of_same_price(Side.Buy);
+
+            Limit_order_crosses_two_limit_orders_of_same_price(Side.Sell);
+        }
     }
 }
