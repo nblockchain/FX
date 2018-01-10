@@ -5,6 +5,10 @@ type MatchLeftOver =
     | UnmatchedLimitOrderLeftOverAfterPartialMatch of LimitOrder
     | SideLeftAfterFullMatch of OrderBookSide
 
+module OrderBookSideMemoryManager =
+    let AppendOrder (order: LimitOrder) (orderBookSide: OrderBookSide): OrderBookSide =
+        order::orderBookSide
+
 type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
 
     let rec MatchMarket (quantityLeftToMatch: decimal) (orderBookSide: OrderBookSide): OrderBookSide =
@@ -19,7 +23,7 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
                 let newPartialLimitOrder = { Side = firstLimitOrder.Side;
                                              Price = firstLimitOrder.Price;
                                              Quantity = firstLimitOrder.Quantity - quantityLeftToMatch }
-                newPartialLimitOrder::tail
+                OrderBookSideMemoryManager.AppendOrder newPartialLimitOrder tail
 
     let rec MatchLimitOrders (orderInBook: LimitOrder) (incomingOrder: LimitOrder) (restOfBookSide: OrderBookSide)
                        : MatchLeftOver =
@@ -38,7 +42,7 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
                 let partialRemainingLimitOrder = { Side = orderInBook.Side;
                                                    Price = orderInBook.Price;
                                                    Quantity = orderInBook.Quantity - incomingOrder.Quantity }
-                SideLeftAfterFullMatch(partialRemainingLimitOrder::restOfBookSide)
+                SideLeftAfterFullMatch(OrderBookSideMemoryManager.AppendOrder partialRemainingLimitOrder restOfBookSide)
             else //if (orderInBook.Quantity < incomingOrder.Quantity)
                 let partialRemainingIncomingLimitOrder =
                     { Side = incomingOrder.Side;
@@ -56,22 +60,24 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
         match incomingOrder.Side with
         | Side.Buy ->
             match askSide with
-            | [] -> OrderBook(incomingOrder::bidSide, askSide)
+            | [] -> OrderBook(OrderBookSideMemoryManager.AppendOrder incomingOrder bidSide, askSide)
             | firstSellLimitOrder::restOfAskSide ->
                 let maybeMatchingResultSide = MatchLimitOrders firstSellLimitOrder incomingOrder restOfAskSide
                 match maybeMatchingResultSide with
-                | NoMatch -> OrderBook(incomingOrder::bidSide, askSide)
+                | NoMatch -> OrderBook(OrderBookSideMemoryManager.AppendOrder incomingOrder bidSide, askSide)
                 | SideLeftAfterFullMatch(newAskSide) -> OrderBook(bidSide, newAskSide)
-                | UnmatchedLimitOrderLeftOverAfterPartialMatch(leftOverOrder) -> OrderBook(leftOverOrder::bidSide, [])
+                | UnmatchedLimitOrderLeftOverAfterPartialMatch(leftOverOrder) ->
+                    OrderBook(OrderBookSideMemoryManager.AppendOrder leftOverOrder bidSide, [])
         | Side.Sell ->
             match bidSide with
-            | [] -> OrderBook(bidSide, incomingOrder::askSide)
+            | [] -> OrderBook(bidSide, OrderBookSideMemoryManager.AppendOrder incomingOrder askSide)
             | firstBuyLimitOrder::restOfBidSide ->
                 let maybeMatchingResultSide = MatchLimitOrders firstBuyLimitOrder incomingOrder restOfBidSide
                 match maybeMatchingResultSide with
-                | NoMatch -> OrderBook(bidSide, incomingOrder::askSide)
+                | NoMatch -> OrderBook(bidSide, OrderBookSideMemoryManager.AppendOrder incomingOrder askSide)
                 | SideLeftAfterFullMatch(newBidSide) -> OrderBook(newBidSide, askSide)
-                | UnmatchedLimitOrderLeftOverAfterPartialMatch(leftOverOrder) -> OrderBook([], leftOverOrder::askSide)
+                | UnmatchedLimitOrderLeftOverAfterPartialMatch(leftOverOrder) ->
+                    OrderBook([], OrderBookSideMemoryManager.AppendOrder leftOverOrder askSide)
 
     new() = OrderBook([], [])
 
