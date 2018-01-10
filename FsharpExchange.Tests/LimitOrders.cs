@@ -364,5 +364,88 @@ namespace FsharpExchange.Tests
 
             Limit_order_crosses_one_limit_order_and_stays_partially_after_no_more_liquidity_left_in_one_side(Side.Sell);
         }
+
+        private static OrderBook CreateNewExchangeAndSendTheseOrdersToIt
+        (IEnumerable<LimitOrder> orders)
+        {
+            var exchange = new Exchange();
+            var someMarket = new Market(Currency.BTC, Currency.USD);
+            foreach(var order in orders)
+            {
+                exchange.SendLimitOrder(order, someMarket);
+            }
+            return exchange[someMarket];
+        }
+
+        private static void Limit_order_should_always_cross_if_there_is_a_matching_limit_order_regardless_of_the_order_they_were_inserted_in_previously
+            (Side side)
+        {
+            var quantity = 1;
+            var lowestPriceOfOrderBookSide = 10000;
+            var highestPriceOfOrderBookSide = 15000;
+            var tipPrice = side == Side.Buy ?
+                highestPriceOfOrderBookSide : lowestPriceOfOrderBookSide;
+            var nonTipPrice = side == Side.Buy ?
+                lowestPriceOfOrderBookSide : highestPriceOfOrderBookSide;
+
+            var lowestSittingLimitOrder =
+                new LimitOrder(side, quantity, lowestPriceOfOrderBookSide);
+
+            var highestSittingLimitOrder =
+                new LimitOrder(side, quantity, highestPriceOfOrderBookSide);
+
+            var limitOrderMatchingWithTipPrice =
+                new LimitOrder(side.Other(), quantity, tipPrice);
+
+
+            var combination1 = new[] { lowestSittingLimitOrder, highestSittingLimitOrder, limitOrderMatchingWithTipPrice };
+            var combination2 = new[] { highestSittingLimitOrder, lowestSittingLimitOrder, limitOrderMatchingWithTipPrice };
+
+            var allCombinations = new[] {
+                combination1,
+                combination2,
+            };
+
+            int combinationCount = 1;
+            foreach (var combination in allCombinations) {
+                Assert.That(combination.Count(), Is.EqualTo(3),
+                            "this test was meant to just test combinations of 3 orders, not more");
+
+                var testMsg =
+                    $"testing combination {combinationCount} with {side}";
+                var orderBook =
+                    CreateNewExchangeAndSendTheseOrdersToIt(combination);
+                Assert.That(orderBook[side.Other()].Count(), Is.EqualTo(0),
+                            "(count of the other side) " + testMsg);
+                Assert.That(orderBook[side].Count(), Is.EqualTo(1),
+                            "(count of this side) " + testMsg);
+
+                var leftOverLimitOrder = orderBook[side].ElementAt(0);
+                Assert.That(leftOverLimitOrder.Side,
+                            Is.EqualTo(side));
+
+                Assert.That(leftOverLimitOrder.Quantity,
+                            Is.EqualTo(quantity));
+
+                var lastOrderWhichIsTheMatchingOrder = combination.Last();
+                Assert.That(leftOverLimitOrder.Price,
+                            Is.Not.EqualTo(tipPrice),
+                            testMsg);
+
+                Assert.That(leftOverLimitOrder.Price,
+                            Is.EqualTo(nonTipPrice));
+
+                combinationCount++;
+            }
+        }
+
+        [Test]
+        [Ignore("doesn't work yet, at the moment of writing only works with combination2 and combination3, but not 1 or 4")]
+        public void Limit_order_should_always_cross_if_there_is_a_matching_limit_order_regardless_of_the_order_they_were_inserted_in_previously()
+        {
+            Limit_order_should_always_cross_if_there_is_a_matching_limit_order_regardless_of_the_order_they_were_inserted_in_previously(Side.Buy);
+
+            Limit_order_should_always_cross_if_there_is_a_matching_limit_order_regardless_of_the_order_they_were_inserted_in_previously(Side.Sell);
+        }
     }
 }
