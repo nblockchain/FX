@@ -15,6 +15,7 @@ Makefile.in
 *.cache
 *.pidb
 *.userprefs
+.vs/
 *.usertasks
 config.log
 config.make
