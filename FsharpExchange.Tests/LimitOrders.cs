@@ -440,7 +440,6 @@ namespace FsharpExchange.Tests
         }
 
         [Test]
-        [Ignore("doesn't work yet, at the moment of writing only works with combination2 and combination3, but not 1 or 4")]
         public void Limit_order_should_always_cross_if_there_is_a_matching_limit_order_regardless_of_the_order_they_were_inserted_in_previously()
         {
             Limit_order_should_always_cross_if_there_is_a_matching_limit_order_regardless_of_the_order_they_were_inserted_in_previously(Side.Buy);

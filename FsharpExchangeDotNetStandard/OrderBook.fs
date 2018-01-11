@@ -6,8 +6,22 @@ type MatchLeftOver =
     | SideLeftAfterFullMatch of OrderBookSide
 
 module OrderBookSideMemoryManager =
-    let AppendOrder (order: LimitOrder) (orderBookSide: OrderBookSide): OrderBookSide =
-        order::orderBookSide
+    let rec AppendOrder (order: LimitOrder) (orderBookSide: OrderBookSide): OrderBookSide =
+        match orderBookSide with
+        | [] -> [ order ]
+        | head::tail ->
+            if (head.Side <> order.Side) then
+                failwith "Assertion failed, should not mix different sides in same OrderBookSide structure"
+
+            // FIXME: when order is same price, we should let the oldest order be in the tip...? test this
+            let canAdd =
+                match order.Side with
+                | Side.Buy -> order.Price > head.Price
+                | Side.Sell -> order.Price < head.Price
+            if (canAdd) then
+                order::orderBookSide
+            else
+                head::(AppendOrder order tail)
 
 type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
 
