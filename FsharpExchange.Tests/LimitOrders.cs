@@ -319,6 +319,49 @@ namespace FsharpExchange.Tests
             Limit_order_crosses_two_limit_orders_of_same_price(Side.Sell);
         }
 
+        private static void Limit_order_that_matches_when_inserted_always_chooses_the_best_price_even_if_trader_was_stupid_to_choose_a_worse_price(Side side)
+        {
+            var quantity = 1;
+            var tipPrice = 10000;
+            var notTipPrice = side == Side.Buy ? tipPrice / 2 : tipPrice * 2;
+            var market = new Market(Currency.BTC, Currency.USD);
+
+            var exchange = new Exchange();
+
+            var tipLimitOrder =
+                new LimitOrder(side, quantity, tipPrice);
+            exchange.SendLimitOrder(tipLimitOrder, market);
+
+            var nonTipLimitOrder =
+                new LimitOrder(side, quantity, notTipPrice);
+            exchange.SendLimitOrder(nonTipLimitOrder, market);
+
+            var incomingLimitMatchingOrder =
+                new LimitOrder(side.Other(), quantity, notTipPrice);
+            exchange.SendLimitOrder(incomingLimitMatchingOrder, market);
+
+            var orderBook = exchange[market];
+
+            Assert.That(orderBook[side.Other()].Count(), Is.EqualTo(0));
+            Assert.That(orderBook[side].Count(), Is.EqualTo(1));
+
+            var leftOverLimitOrder = orderBook[side].ElementAt(0);
+            Assert.That(leftOverLimitOrder.Side,
+                        Is.EqualTo(side));
+            Assert.That(leftOverLimitOrder.Quantity,
+                        Is.EqualTo(quantity));
+            Assert.That(leftOverLimitOrder.Price,
+                        Is.EqualTo(notTipPrice));
+        }
+
+        [Test]
+        public void Limit_order_that_matches_when_inserted_always_chooses_the_best_price_even_if_trader_was_stupid_to_choose_a_worse_price()
+        {
+            Limit_order_that_matches_when_inserted_always_chooses_the_best_price_even_if_trader_was_stupid_to_choose_a_worse_price(Side.Buy);
+
+            Limit_order_that_matches_when_inserted_always_chooses_the_best_price_even_if_trader_was_stupid_to_choose_a_worse_price(Side.Sell);
+        }
+
         private static void Limit_order_crosses_one_limit_order_and_stays_partially_after_no_more_liquidity_left_in_one_side(Side side)
         {
             var quantityOfThePreviouslySittingOrder = 1;
@@ -395,9 +438,17 @@ namespace FsharpExchange.Tests
             var combination1 = new[] { lowestSittingLimitOrder, highestSittingLimitOrder, limitOrderMatchingWithTipPrice };
             var combination2 = new[] { highestSittingLimitOrder, lowestSittingLimitOrder, limitOrderMatchingWithTipPrice };
 
+            var limitOrderMatchingWithNonTipPrice =
+                new LimitOrder(side.Other(), quantity, nonTipPrice);
+
+            var combination3 = new[] { lowestSittingLimitOrder, highestSittingLimitOrder, limitOrderMatchingWithNonTipPrice };
+            var combination4 = new[] { highestSittingLimitOrder, lowestSittingLimitOrder, limitOrderMatchingWithNonTipPrice };
+
             var allCombinations = new[] {
                 combination1,
                 combination2,
+                combination3,
+                combination4
             };
 
             int combinationCount = 1;
