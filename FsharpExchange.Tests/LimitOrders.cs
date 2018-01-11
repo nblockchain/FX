@@ -99,7 +99,6 @@ namespace FsharpExchange.Tests
 
             var exchange = new Exchange();
 
-            // first make sure exchange's orderbook is empty
             var orderBook = exchange[market];
 
             var firstLimitOrder = new LimitOrder(side, quantity, price);
@@ -142,7 +141,6 @@ namespace FsharpExchange.Tests
 
             var exchange = new Exchange();
 
-            // first make sure exchange's orderbook is empty
             var orderBook = exchange[market];
 
             var firstLimitOrder = new LimitOrder(side, quantity, price);
@@ -190,7 +188,6 @@ namespace FsharpExchange.Tests
 
             var exchange = new Exchange();
 
-            // first make sure exchange's orderbook is empty
             var orderBook = exchange[market];
 
             var firstLimitOrder = new LimitOrder(side, quantity, price);
@@ -256,7 +253,6 @@ namespace FsharpExchange.Tests
 
             var exchange = new Exchange();
 
-            // first make sure exchange's orderbook is empty
             var orderBook = exchange[market];
 
             var firstLimitOrder =
@@ -296,7 +292,6 @@ namespace FsharpExchange.Tests
 
             var exchange = new Exchange();
 
-            // first make sure exchange's orderbook is empty
             var orderBook = exchange[market];
 
             var firstLimitOrder =
@@ -333,7 +328,6 @@ namespace FsharpExchange.Tests
 
             var exchange = new Exchange();
 
-            // first make sure exchange's orderbook is empty
             var orderBook = exchange[market];
 
             var firstLimitOrder =
