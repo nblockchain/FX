@@ -11,12 +11,21 @@ namespace FsharpExchange.Tests
     [TestFixture]
     public class LimitOrders
     {
+        internal static void SendOrder(Exchange exchange,
+                                       LimitOrder limitOrder,
+                                       Market market)
+        {
+            var nonMakerOnlyLimitOrder =
+                new LimitOrderRequest(limitOrder, LimitOrderRequestType.Normal);
+            exchange.SendLimitOrder(nonMakerOnlyLimitOrder, market);
+        }
+
         internal static Exchange Limit_order_is_accepted_by_empty_exchange
             (LimitOrder limitOrder,
              Market market)
         {
             var exchange = new Exchange();
-            var side = limitOrder.Side;
+            var side = limitOrder.OrderInfo.Side;
 
             // first make sure exchange's orderbook is empty
             var btcUsdOrderBook = exchange[market];
@@ -25,15 +34,15 @@ namespace FsharpExchange.Tests
             Assert.That(btcUsdOrderBook[Side.Sell].Count(), Is.EqualTo(0),
                         "initial exchange state should be zero orders (sell)");
 
-            exchange.SendLimitOrder(limitOrder, market);
+            SendOrder(exchange, limitOrder, market);
             var btcUsdOrderBookAgain = exchange[market];
             Assert.That(btcUsdOrderBookAgain[side].Count(), Is.EqualTo(1));
             var uniqueLimitOrder = btcUsdOrderBookAgain[side].ElementAt(0);
-            Assert.That(uniqueLimitOrder.Side, Is.EqualTo(side));
+            Assert.That(uniqueLimitOrder.OrderInfo.Side, Is.EqualTo(side));
             Assert.That(uniqueLimitOrder.Price,
                         Is.EqualTo(limitOrder.Price));
-            Assert.That(uniqueLimitOrder.Quantity,
-                        Is.EqualTo(limitOrder.Quantity));
+            Assert.That(uniqueLimitOrder.OrderInfo.Quantity,
+                        Is.EqualTo(limitOrder.OrderInfo.Quantity));
 
             Assert.That(btcUsdOrderBookAgain[side.Other()].Count(), Is.EqualTo(0));
 
@@ -47,10 +56,12 @@ namespace FsharpExchange.Tests
             var price = 10000;
             var market = new Market(Currency.BTC, Currency.USD);
 
-            var buyOrder = new LimitOrder(Side.Buy, quantity, price);
+            var buyOrder =
+                new LimitOrder(new OrderInfo(Side.Buy, quantity), price);
             Limit_order_is_accepted_by_empty_exchange(buyOrder, market);
 
-            var sellOrder = new LimitOrder(Side.Sell, quantity, price);
+            var sellOrder =
+                new LimitOrder(new OrderInfo(Side.Sell, quantity), price);
             Limit_order_is_accepted_by_empty_exchange(sellOrder, market);
         }
 
@@ -67,11 +78,11 @@ namespace FsharpExchange.Tests
                 LimitOrder otherEquivalentFound = null;
                 foreach(var otherOrderInB in b)
                 {
-                    if (first.Side != otherOrderInB.Side)
+                    if (first.OrderInfo.Side != otherOrderInB.OrderInfo.Side)
                         throw new Exception("Something went very wrong, it seems we're comparing a Bid orderBookSide with an Ask one?");
 
                     if (first.Price == otherOrderInB.Price &&
-                        first.Quantity == otherOrderInB.Quantity)
+                        first.OrderInfo.Quantity == otherOrderInB.OrderInfo.Quantity)
                     {
                         otherEquivalentFound = otherOrderInB;
                         break;
@@ -79,7 +90,7 @@ namespace FsharpExchange.Tests
                 }
                 if (otherEquivalentFound == null)
                 {
-                    throw new Exception($"Order with price {first.Price} and quantity {first.Quantity} not found on the other side");
+                    throw new Exception($"Order with price {first.Price} and quantity {first.OrderInfo.Quantity} not found on the other side");
                 }
 
                 var newA = new List<LimitOrder>(a);
@@ -101,16 +112,17 @@ namespace FsharpExchange.Tests
 
             var orderBook = exchange[market];
 
-            var firstLimitOrder = new LimitOrder(side, quantity, price);
-            exchange.SendLimitOrder(firstLimitOrder, market);
+            var firstLimitOrder =
+                new LimitOrder(new OrderInfo(side, quantity), price);
+            SendOrder(exchange, firstLimitOrder, market);
 
             var secondLimitOrder =
-                new LimitOrder(side, quantity, secondAndThirdPrice);
-            exchange.SendLimitOrder(secondLimitOrder, market);
+                new LimitOrder(new OrderInfo(side, quantity), secondAndThirdPrice);
+            SendOrder(exchange, secondLimitOrder, market);
 
             var thirdLimitOrder =
-                new LimitOrder(side, quantity, secondAndThirdPrice);
-            exchange.SendLimitOrder(secondLimitOrder, market);
+                new LimitOrder(new OrderInfo(side, quantity), secondAndThirdPrice);
+            SendOrder(exchange, secondLimitOrder, market);
 
             var allLimitOrdersSent = new List<LimitOrder> {
                 firstLimitOrder, secondLimitOrder, thirdLimitOrder
@@ -143,32 +155,34 @@ namespace FsharpExchange.Tests
 
             var orderBook = exchange[market];
 
-            var firstLimitOrder = new LimitOrder(side, quantity, price);
-            exchange.SendLimitOrder(firstLimitOrder, market);
+            var firstLimitOrder =
+                new LimitOrder(new OrderInfo(side, quantity), price);
+            SendOrder(exchange, firstLimitOrder, market);
 
             var secondLimitOrder =
-                new LimitOrder(side.Other(), quantity, opposingPrice);
-            exchange.SendLimitOrder(secondLimitOrder, market);
+                new LimitOrder(new OrderInfo(side.Other(), quantity),
+                               opposingPrice);
+            SendOrder(exchange, secondLimitOrder, market);
 
             var orderBookAgain = exchange[market];
 
             Assert.That(orderBookAgain[side].Count(), Is.EqualTo(1));
             var aLimitOrder = orderBookAgain[side].ElementAt(0);
-            Assert.That(aLimitOrder.Side,
-                        Is.EqualTo(firstLimitOrder.Side));
+            Assert.That(aLimitOrder.OrderInfo.Side,
+                        Is.EqualTo(firstLimitOrder.OrderInfo.Side));
             Assert.That(aLimitOrder.Price,
                         Is.EqualTo(firstLimitOrder.Price));
-            Assert.That(aLimitOrder.Quantity,
-                        Is.EqualTo(firstLimitOrder.Quantity));
+            Assert.That(aLimitOrder.OrderInfo.Quantity,
+                        Is.EqualTo(firstLimitOrder.OrderInfo.Quantity));
 
             Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(1));
             var anotherLimitOrder = orderBookAgain[side.Other()].ElementAt(0);
-            Assert.That(anotherLimitOrder.Side,
-                        Is.EqualTo(secondLimitOrder.Side));
+            Assert.That(anotherLimitOrder.OrderInfo.Side,
+                        Is.EqualTo(secondLimitOrder.OrderInfo.Side));
             Assert.That(anotherLimitOrder.Price,
                         Is.EqualTo(secondLimitOrder.Price));
-            Assert.That(anotherLimitOrder.Quantity,
-                        Is.EqualTo(secondLimitOrder.Quantity));
+            Assert.That(anotherLimitOrder.OrderInfo.Quantity,
+                        Is.EqualTo(secondLimitOrder.OrderInfo.Quantity));
         }
 
         [Test]
@@ -190,12 +204,13 @@ namespace FsharpExchange.Tests
 
             var orderBook = exchange[market];
 
-            var firstLimitOrder = new LimitOrder(side, quantity, price);
-            exchange.SendLimitOrder(firstLimitOrder, market);
+            var firstLimitOrder =
+                new LimitOrder(new OrderInfo(side, quantity), price);
+            SendOrder(exchange, firstLimitOrder, market);
 
             var secondLimitMatchingOrder =
-                new LimitOrder(side.Other(), quantity, price);
-            exchange.SendLimitOrder(secondLimitMatchingOrder, market);
+                new LimitOrder(new OrderInfo(side.Other(), quantity), price);
+            SendOrder(exchange, secondLimitMatchingOrder, market);
 
             var orderBookAgain = exchange[market];
             Assert.That(orderBookAgain[side].Count(), Is.EqualTo(0));
@@ -222,12 +237,14 @@ namespace FsharpExchange.Tests
 
             var orderBook = exchange[market];
 
-            var firstLimitOrder = new LimitOrder(side, quantity, price);
-            exchange.SendLimitOrder(firstLimitOrder, market);
+            var firstLimitOrder =
+                new LimitOrder(new OrderInfo(side, quantity), price);
+            SendOrder(exchange, firstLimitOrder, market);
 
             var secondLimitOrder =
-                new LimitOrder(side.Other(), quantity, opposingPrice);
-            exchange.SendLimitOrder(secondLimitOrder, market);
+                new LimitOrder(new OrderInfo(side.Other(), quantity),
+                               opposingPrice);
+            SendOrder(exchange, secondLimitOrder, market);
 
             var orderBookAgain = exchange[market];
 
@@ -256,22 +273,24 @@ namespace FsharpExchange.Tests
             var orderBook = exchange[market];
 
             var firstLimitOrder =
-                new LimitOrder(side, quantityOfFirstOrder, price);
-            exchange.SendLimitOrder(firstLimitOrder, market);
+                new LimitOrder(new OrderInfo(side, quantityOfFirstOrder),
+                               price);
+            SendOrder(exchange, firstLimitOrder, market);
 
             var secondLimitMatchingOrder =
-                new LimitOrder(side.Other(), quantityOfSecondOrder, price);
-            exchange.SendLimitOrder(secondLimitMatchingOrder, market);
+                new LimitOrder(new OrderInfo(side.Other(), quantityOfSecondOrder),
+                               price);
+            SendOrder(exchange, secondLimitMatchingOrder, market);
 
             var orderBookAgain = exchange[market];
             Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
             Assert.That(orderBookAgain[side].Count(), Is.EqualTo(1));
             var leftOverLimitOrder = orderBookAgain[side].ElementAt(0);
-            Assert.That(leftOverLimitOrder.Side,
+            Assert.That(leftOverLimitOrder.OrderInfo.Side,
                         Is.EqualTo(side));
             Assert.That(leftOverLimitOrder.Price,
                         Is.EqualTo(price));
-            Assert.That(leftOverLimitOrder.Quantity,
+            Assert.That(leftOverLimitOrder.OrderInfo.Quantity,
                         Is.EqualTo(quantityOfFirstOrder - quantityOfSecondOrder));
         }
 
@@ -295,16 +314,22 @@ namespace FsharpExchange.Tests
             var orderBook = exchange[market];
 
             var firstLimitOrder =
-                new LimitOrder(side, quantityOfEachOfTheSittingOrders, price);
-            exchange.SendLimitOrder(firstLimitOrder, market);
+                new LimitOrder(new OrderInfo(side,
+                                             quantityOfEachOfTheSittingOrders),
+                               price);
+            SendOrder(exchange, firstLimitOrder, market);
 
             var secondLimitMatchingOrder =
-                new LimitOrder(side, quantityOfEachOfTheSittingOrders, price);
-            exchange.SendLimitOrder(secondLimitMatchingOrder, market);
+                new LimitOrder(new OrderInfo(side,
+                                             quantityOfEachOfTheSittingOrders),
+                               price);
+            SendOrder(exchange, secondLimitMatchingOrder, market);
 
             var incomingLimitMatchingOrder =
-                new LimitOrder(side.Other(), quantityOfIncomingOrder, price);
-            exchange.SendLimitOrder(incomingLimitMatchingOrder, market);
+                new LimitOrder(new OrderInfo(side.Other(),
+                                             quantityOfIncomingOrder),
+                               price);
+            SendOrder(exchange, incomingLimitMatchingOrder, market);
 
             var orderBookAgain = exchange[market];
             Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
@@ -329,16 +354,17 @@ namespace FsharpExchange.Tests
             var exchange = new Exchange();
 
             var tipLimitOrder =
-                new LimitOrder(side, quantity, tipPrice);
-            exchange.SendLimitOrder(tipLimitOrder, market);
+                new LimitOrder(new OrderInfo(side, quantity), tipPrice);
+            SendOrder(exchange, tipLimitOrder, market);
 
             var nonTipLimitOrder =
-                new LimitOrder(side, quantity, notTipPrice);
-            exchange.SendLimitOrder(nonTipLimitOrder, market);
+                new LimitOrder(new OrderInfo(side, quantity), notTipPrice);
+            SendOrder(exchange, nonTipLimitOrder, market);
 
             var incomingLimitMatchingOrder =
-                new LimitOrder(side.Other(), quantity, notTipPrice);
-            exchange.SendLimitOrder(incomingLimitMatchingOrder, market);
+                new LimitOrder(new OrderInfo(side.Other(), quantity),
+                               notTipPrice);
+            SendOrder(exchange, incomingLimitMatchingOrder, market);
 
             var orderBook = exchange[market];
 
@@ -346,9 +372,9 @@ namespace FsharpExchange.Tests
             Assert.That(orderBook[side].Count(), Is.EqualTo(1));
 
             var leftOverLimitOrder = orderBook[side].ElementAt(0);
-            Assert.That(leftOverLimitOrder.Side,
+            Assert.That(leftOverLimitOrder.OrderInfo.Side,
                         Is.EqualTo(side));
-            Assert.That(leftOverLimitOrder.Quantity,
+            Assert.That(leftOverLimitOrder.OrderInfo.Quantity,
                         Is.EqualTo(quantity));
             Assert.That(leftOverLimitOrder.Price,
                         Is.EqualTo(notTipPrice));
@@ -374,23 +400,27 @@ namespace FsharpExchange.Tests
             var orderBook = exchange[market];
 
             var firstLimitOrder =
-                new LimitOrder(side, quantityOfThePreviouslySittingOrder, price);
-            exchange.SendLimitOrder(firstLimitOrder, market);
+                new LimitOrder(new OrderInfo(side,
+                                             quantityOfThePreviouslySittingOrder),
+                               price);
+            SendOrder(exchange, firstLimitOrder, market);
 
             var incomingLimitMatchingOrder =
-                new LimitOrder(side.Other(), quantityOfIncomingOrder, price);
-            exchange.SendLimitOrder(incomingLimitMatchingOrder, market);
+                new LimitOrder(new OrderInfo(side.Other(),
+                                             quantityOfIncomingOrder),
+                               price);
+            SendOrder(exchange, incomingLimitMatchingOrder, market);
 
             var orderBookAgain = exchange[market];
             Assert.That(orderBookAgain[side].Count(), Is.EqualTo(0));
             Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(1));
 
             var leftOverLimitOrder = orderBookAgain[side.Other()].ElementAt(0);
-            Assert.That(leftOverLimitOrder.Side,
-                        Is.EqualTo(incomingLimitMatchingOrder.Side));
+            Assert.That(leftOverLimitOrder.OrderInfo.Side,
+                        Is.EqualTo(incomingLimitMatchingOrder.OrderInfo.Side));
             Assert.That(leftOverLimitOrder.Price,
                         Is.EqualTo(price));
-            Assert.That(leftOverLimitOrder.Quantity,
+            Assert.That(leftOverLimitOrder.OrderInfo.Quantity,
                         Is.EqualTo(quantityOfIncomingOrder - quantityOfThePreviouslySittingOrder));
         }
 
@@ -409,7 +439,7 @@ namespace FsharpExchange.Tests
             var someMarket = new Market(Currency.BTC, Currency.USD);
             foreach(var order in orders)
             {
-                exchange.SendLimitOrder(order, someMarket);
+                SendOrder(exchange, order, someMarket);
             }
             return exchange[someMarket];
         }
@@ -426,20 +456,24 @@ namespace FsharpExchange.Tests
                 lowestPriceOfOrderBookSide : highestPriceOfOrderBookSide;
 
             var lowestSittingLimitOrder =
-                new LimitOrder(side, quantity, lowestPriceOfOrderBookSide);
+                new LimitOrder(new OrderInfo(side, quantity),
+                               lowestPriceOfOrderBookSide);
 
             var highestSittingLimitOrder =
-                new LimitOrder(side, quantity, highestPriceOfOrderBookSide);
+                new LimitOrder(new OrderInfo(side, quantity),
+                               highestPriceOfOrderBookSide);
 
             var limitOrderMatchingWithTipPrice =
-                new LimitOrder(side.Other(), quantity, tipPrice);
+                new LimitOrder(new OrderInfo(side.Other(), quantity),
+                               tipPrice);
 
 
             var combination1 = new[] { lowestSittingLimitOrder, highestSittingLimitOrder, limitOrderMatchingWithTipPrice };
             var combination2 = new[] { highestSittingLimitOrder, lowestSittingLimitOrder, limitOrderMatchingWithTipPrice };
 
             var limitOrderMatchingWithNonTipPrice =
-                new LimitOrder(side.Other(), quantity, nonTipPrice);
+                new LimitOrder(new OrderInfo(side.Other(), quantity),
+                               nonTipPrice);
 
             var combination3 = new[] { lowestSittingLimitOrder, highestSittingLimitOrder, limitOrderMatchingWithNonTipPrice };
             var combination4 = new[] { highestSittingLimitOrder, lowestSittingLimitOrder, limitOrderMatchingWithNonTipPrice };
@@ -466,10 +500,10 @@ namespace FsharpExchange.Tests
                             "(count of this side) " + testMsg);
 
                 var leftOverLimitOrder = orderBook[side].ElementAt(0);
-                Assert.That(leftOverLimitOrder.Side,
+                Assert.That(leftOverLimitOrder.OrderInfo.Side,
                             Is.EqualTo(side));
 
-                Assert.That(leftOverLimitOrder.Quantity,
+                Assert.That(leftOverLimitOrder.OrderInfo.Quantity,
                             Is.EqualTo(quantity));
 
                 var lastOrderWhichIsTheMatchingOrder = combination.Last();

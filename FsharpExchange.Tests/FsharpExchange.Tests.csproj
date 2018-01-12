@@ -36,6 +36,7 @@
   <ItemGroup>
     <Compile Include="LimitOrders.cs" />
     <Compile Include="MarketOrders.cs" />
+    <Compile Include="MakerOnlyOrders.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

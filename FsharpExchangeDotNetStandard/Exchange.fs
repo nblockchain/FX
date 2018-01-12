@@ -7,7 +7,7 @@ type public Exchange() =
 
     let lockObject = Object()
 
-    let ReceiveOrder (order: Order) (market: Market) =
+    let ReceiveOrder (order: OrderRequest) (market: Market) =
         lock lockObject (
             fun _ ->
                 let maybeOrderBook = Map.tryFind market markets
@@ -21,11 +21,11 @@ type public Exchange() =
                 markets <- markets.Add(market, newOrderBook)
             )
 
-    member x.SendMarketOrder (order: MarketOrder, market: Market): unit =
-        ReceiveOrder (Market(order)) market
+    member x.SendMarketOrder (order: OrderInfo, market: Market) =
+        ReceiveOrder (OrderRequest.Market(order)) market
 
-    member x.SendLimitOrder (order: LimitOrder, market: Market) =
-        ReceiveOrder (Limit(order)) market
+    member x.SendLimitOrder (order: LimitOrderRequest, market: Market) =
+        ReceiveOrder (OrderRequest.Limit(order)) market
 
     member x.Item
         with get (market: Market): OrderBook =

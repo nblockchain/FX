@@ -16,15 +16,22 @@ type Side =
         | Side.Buy -> Side.Sell
         | Side.Sell -> Side.Buy
 
-type LimitOrder =
-    { Side: Side; Quantity: decimal; Price: decimal }
+type LimitOrderRequestType =
+    | Normal
+    | MakerOnly
 
-type MarketOrder =
+type OrderInfo =
     { Side: Side; Quantity: decimal; }
 
-type internal Order =
-    | Limit of LimitOrder
-    | Market of MarketOrder
+type LimitOrder =
+    { OrderInfo: OrderInfo; Price: decimal }
+
+type LimitOrderRequest =
+    { Order: LimitOrder; RequestType: LimitOrderRequestType; }
+
+type OrderRequest =
+    | Market of OrderInfo
+    | Limit of LimitOrderRequest
 
 type OrderBookSide =
     list<LimitOrder>
