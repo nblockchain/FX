@@ -186,7 +186,6 @@ namespace FsharpExchange.Tests
         }
 
         [Test]
-        [Ignore("doesn't work yet")]
         public void MakerOnly_order_can_not_cross_another_limit_order_of_same_amount_and_same_price_and_should_be_rejected()
         {
             MakerOnly_order_can_not_cross_another_limit_order_of_same_amount_and_same_price_and_should_be_rejected(Side.Buy);

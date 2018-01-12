@@ -42,9 +42,10 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
                 OrderBookSideMemoryManager.AppendOrder newPartialLimitOrder tail
 
     let rec MatchLimitOrders (orderInBook: LimitOrder)
-                             (incomingOrder: LimitOrder)
+                             (incomingOrderRequest: LimitOrderRequest)
                              (restOfBookSide: OrderBookSide)
                              : MatchLeftOver =
+        let incomingOrder = incomingOrderRequest.Order
         if (orderInBook.OrderInfo.Side = incomingOrder.OrderInfo.Side) then
             failwith "Failed assertion: MatchLimitOrders() should not receive orders of same side"
 
@@ -54,6 +55,9 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
             | Side.Buy -> orderInBook.Price <= incomingOrder.Price
 
         if (matches) then
+            if (incomingOrderRequest.RequestType = LimitOrderRequestType.MakerOnly) then
+                raise MatchExpectationsUnmet
+
             if (orderInBook.OrderInfo.Quantity = incomingOrder.OrderInfo.Quantity) then
                 SideLeftAfterFullMatch(restOfBookSide)
             elif (orderInBook.OrderInfo.Quantity > incomingOrder.OrderInfo.Quantity) then
@@ -70,11 +74,14 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
                       OrderInfo = { Side = incomingOrder.OrderInfo.Side;
                                     Quantity = incomingOrder.OrderInfo.Quantity - orderInBook.OrderInfo.Quantity }
                     }
+                let partialRemainingIncomingOrderRequest =
+                    { Order = partialRemainingIncomingLimitOrder;
+                      RequestType = incomingOrderRequest.RequestType }
                 match restOfBookSide with
                 | [] ->
                     UnmatchedLimitOrderLeftOverAfterPartialMatch(partialRemainingIncomingLimitOrder)
                 | secondLimitOrder::secondTail ->
-                    MatchLimitOrders secondLimitOrder partialRemainingIncomingLimitOrder secondTail
+                    MatchLimitOrders secondLimitOrder partialRemainingIncomingOrderRequest secondTail
         else
             NoMatch
 
@@ -86,7 +93,7 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
             match askSide with
             | [] -> OrderBook(OrderBookSideMemoryManager.AppendOrder incomingOrder bidSide, askSide)
             | firstSellLimitOrder::restOfAskSide ->
-                let maybeMatchingResultSide = MatchLimitOrders firstSellLimitOrder incomingOrder restOfAskSide
+                let maybeMatchingResultSide = MatchLimitOrders firstSellLimitOrder incomingOrderRequest restOfAskSide
                 match maybeMatchingResultSide with
                 | NoMatch -> OrderBook(OrderBookSideMemoryManager.AppendOrder incomingOrder bidSide, askSide)
                 | SideLeftAfterFullMatch(newAskSide) -> OrderBook(bidSide, newAskSide)
@@ -96,7 +103,7 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
             match bidSide with
             | [] -> OrderBook(bidSide, OrderBookSideMemoryManager.AppendOrder incomingOrder askSide)
             | firstBuyLimitOrder::restOfBidSide ->
-                let maybeMatchingResultSide = MatchLimitOrders firstBuyLimitOrder incomingOrder restOfBidSide
+                let maybeMatchingResultSide = MatchLimitOrders firstBuyLimitOrder incomingOrderRequest restOfBidSide
                 match maybeMatchingResultSide with
                 | NoMatch -> OrderBook(bidSide, OrderBookSideMemoryManager.AppendOrder incomingOrder askSide)
                 | SideLeftAfterFullMatch(newBidSide) -> OrderBook(newBidSide, askSide)
