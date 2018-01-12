@@ -1,7 +1,5 @@
 ﻿namespace FsharpExchangeDotNetStandard
 
-open System
-
 exception LiquidityProblem
 exception MatchExpectationsUnmet
 
