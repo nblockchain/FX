@@ -3,6 +3,7 @@
 open System
 
 exception LiquidityProblem
+exception MatchExpectationsUnmet
 
 type public Currency =
     | BTC

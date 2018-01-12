@@ -157,5 +157,41 @@ namespace FsharpExchange.Tests
 
             MakerOnly_orders_of_different_sides_but_different_price_dont_match(Side.Sell);
         }
+
+        private static void MakerOnly_order_can_not_cross_another_limit_order_of_same_amount_and_same_price_and_should_be_rejected
+        (Side side)
+        {
+            var quantity = 1;
+            var price = 10000;
+            var market = new Market(Currency.BTC, Currency.USD);
+
+            var exchange = new Exchange();
+
+            var orderBook = exchange[market];
+
+            var firstLimitOrder =
+                new LimitOrder(new OrderInfo(side, quantity), price);
+            SendOrder(exchange, firstLimitOrder, market);
+
+            var secondLimitMatchingOrder =
+                new LimitOrder(new OrderInfo(side.Other(), quantity), price);
+            Assert.Throws<MatchExpectationsUnmet>(() =>
+            {
+                SendOrder(exchange, secondLimitMatchingOrder, market);
+            });
+
+            var orderBookAgain = exchange[market];
+            Assert.That(orderBookAgain[side].Count(), Is.EqualTo(1));
+            Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
+        }
+
+        [Test]
+        [Ignore("doesn't work yet")]
+        public void MakerOnly_order_can_not_cross_another_limit_order_of_same_amount_and_same_price_and_should_be_rejected()
+        {
+            MakerOnly_order_can_not_cross_another_limit_order_of_same_amount_and_same_price_and_should_be_rejected(Side.Buy);
+
+            MakerOnly_order_can_not_cross_another_limit_order_of_same_amount_and_same_price_and_should_be_rejected(Side.Sell);
+        }
     }
 }
