@@ -107,5 +107,55 @@ namespace FsharpExchange.Tests
 
             MakerOnly_orders_of_same_side_never_match(Side.Sell);
         }
+
+        private static void MakerOnly_orders_of_different_sides_but_different_price_dont_match
+            (Side side)
+        {
+            var quantity = 1;
+            var price = 10000;
+            var opposingPrice = side == Side.Buy ? price + 1 : price - 1;
+            var market = new Market(Currency.BTC, Currency.USD);
+
+            var exchange = new Exchange();
+
+            var orderBook = exchange[market];
+
+            var firstMakerOnlyOrder =
+                new LimitOrder(new OrderInfo(side, quantity), price);
+            SendOrder(exchange, firstMakerOnlyOrder, market);
+
+            var secondMakerOnlyOrder =
+                new LimitOrder(new OrderInfo(side.Other(), quantity),
+                               opposingPrice);
+            SendOrder(exchange, secondMakerOnlyOrder, market);
+
+            var orderBookAgain = exchange[market];
+
+            Assert.That(orderBookAgain[side].Count(), Is.EqualTo(1));
+            var aLimitOrder = orderBookAgain[side].ElementAt(0);
+            Assert.That(aLimitOrder.OrderInfo.Side,
+                        Is.EqualTo(firstMakerOnlyOrder.OrderInfo.Side));
+            Assert.That(aLimitOrder.Price,
+                        Is.EqualTo(firstMakerOnlyOrder.Price));
+            Assert.That(aLimitOrder.OrderInfo.Quantity,
+                        Is.EqualTo(firstMakerOnlyOrder.OrderInfo.Quantity));
+
+            Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(1));
+            var anotherLimitOrder = orderBookAgain[side.Other()].ElementAt(0);
+            Assert.That(anotherLimitOrder.OrderInfo.Side,
+                        Is.EqualTo(secondMakerOnlyOrder.OrderInfo.Side));
+            Assert.That(anotherLimitOrder.Price,
+                        Is.EqualTo(secondMakerOnlyOrder.Price));
+            Assert.That(anotherLimitOrder.OrderInfo.Quantity,
+                        Is.EqualTo(secondMakerOnlyOrder.OrderInfo.Quantity));
+        }
+
+        [Test]
+        public void MakerOnly_orders_of_different_sides_but_different_price_dont_match()
+        {
+            MakerOnly_orders_of_different_sides_but_different_price_dont_match(Side.Buy);
+
+            MakerOnly_orders_of_different_sides_but_different_price_dont_match(Side.Sell);
+        }
     }
 }
