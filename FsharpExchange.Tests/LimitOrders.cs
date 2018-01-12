@@ -65,7 +65,7 @@ namespace FsharpExchange.Tests
             Limit_order_is_accepted_by_empty_exchange(sellOrder, market);
         }
 
-        private static void AssertAreSameOrdersRegardlessOfOrder
+        internal static void AssertAreSameOrdersRegardlessOfOrder
             (ICollection<LimitOrder> a,
              ICollection<LimitOrder> b)
         {

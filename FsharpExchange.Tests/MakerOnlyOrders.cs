@@ -25,9 +25,7 @@ namespace FsharpExchange.Tests
             Assert.That(someOrderBook[Side.Sell].Count(), Is.EqualTo(0),
                         "initial exchange state should be zero orders (sell)");
 
-            var orderRequest =
-                new LimitOrderRequest(limitOrder, LimitOrderRequestType.MakerOnly);
-            exchange.SendLimitOrder(orderRequest, market);
+            SendOrder(exchange, limitOrder, market);
             var someOrderBookAgain = exchange[market];
             Assert.That(someOrderBookAgain[side].Count(), Is.EqualTo(1));
             var uniqueLimitOrder = someOrderBookAgain[side].ElementAt(0);
@@ -56,6 +54,58 @@ namespace FsharpExchange.Tests
             var sellOrder =
                 new LimitOrder(new OrderInfo(Side.Sell, quantity), price);
             Limit_order_is_accepted_by_empty_exchange(sellOrder, someMarket);
+        }
+
+        private static void SendOrder(Exchange exchange,
+                                       LimitOrder limitOrder,
+                                       Market market)
+        {
+            var makerOnlyLimitOrder =
+                new LimitOrderRequest(limitOrder, LimitOrderRequestType.MakerOnly);
+            exchange.SendLimitOrder(makerOnlyLimitOrder, market);
+        }
+
+        private static void MakerOnly_orders_of_same_side_never_match(Side side)
+        {
+            var quantity = 1;
+            var price = 10000;
+            var secondAndThirdPrice = price + 1;
+            var market = new Market(Currency.BTC, Currency.USD);
+
+            var exchange = new Exchange();
+
+            var orderBook = exchange[market];
+
+            var firstLimitOrder =
+                new LimitOrder(new OrderInfo(side, quantity), price);
+            SendOrder(exchange, firstLimitOrder, market);
+
+            var secondLimitOrder =
+                new LimitOrder(new OrderInfo(side, quantity), secondAndThirdPrice);
+            SendOrder(exchange, secondLimitOrder, market);
+
+            var thirdLimitOrder =
+                new LimitOrder(new OrderInfo(side, quantity), secondAndThirdPrice);
+            SendOrder(exchange, secondLimitOrder, market);
+
+            var allLimitOrdersSent = new List<LimitOrder> {
+                firstLimitOrder, secondLimitOrder, thirdLimitOrder
+            };
+
+            var orderBookAgain = exchange[market];
+
+            Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
+            var ourSide = new List<LimitOrder>(orderBookAgain[side]);
+            LimitOrders.AssertAreSameOrdersRegardlessOfOrder(allLimitOrdersSent,
+                                                             ourSide);
+        }
+
+        [Test]
+        public void MakerOnly_orders_of_same_side_never_match()
+        {
+            MakerOnly_orders_of_same_side_never_match(Side.Buy);
+
+            MakerOnly_orders_of_same_side_never_match(Side.Sell);
         }
     }
 }
