@@ -1,3 +1,7 @@
+//
+// Copyright (C) 2017-2018 Andres G. Aragoneses - All Rights Reserved
+//
+
 namespace FsharpExchangeDotNetStandard
 
 type MatchLeftOver =
