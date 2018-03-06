@@ -1,7 +1,6 @@
 //
-// Copyright (C) 2017-2018 Andres G. Aragoneses - All Rights Reserved
+// Copyright (C) 2017-2018 Gate Digital Services Ltd. (Gatecoin)
 //
-
 
 ﻿using System;
 using System.Collections.Generic;
