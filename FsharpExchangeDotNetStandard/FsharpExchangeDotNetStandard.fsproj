@@ -9,5 +9,7 @@
     <Compile Include="OrderBook.fs" />
     <Compile Include="Exchange.fs" />
   </ItemGroup>
-
+  <ItemGroup>
+    <PackageReference Include="FSharp.Core" Version="4.5.2" />
+  </ItemGroup>
 </Project>
