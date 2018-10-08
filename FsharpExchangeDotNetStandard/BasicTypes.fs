@@ -14,6 +14,11 @@ type public Currency =
 type Side =
     | Buy
     | Sell
+    static member Parse (side: string): Side =
+        match side.ToLower() with
+        | "buy" -> Buy
+        | "sell" -> Sell
+        | invalidSide -> invalidArg "side" (sprintf "Unknown side %s" side)
     member self.Other() =
         match self with
         | Side.Buy -> Side.Sell

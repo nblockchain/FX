@@ -34,7 +34,14 @@ let handlePostMessage =
             let! message = ctx.BindJsonAsync<Message>()
 
             do! sendMessageToSockets message.Text
+            return! next ctx
+        }
 
+let handlePostLimitOrder =
+    fun (next : HttpFunc) (ctx : HttpContext) ->
+        task {
+            let! limitOrder = ctx.BindJsonAsync<LimitOrder>()
+            do! sendLimitOrderToEngine limitOrder
             return! next ctx
         }
 

@@ -11,6 +11,8 @@ module Middleware =
 
     open FSharp.Control.Tasks.ContextInsensitive
 
+    open FsharpExchangeDotNetStandard
+
     let mutable sockets = list<WebSocket>.Empty
 
     let private addSocket sockets socket = socket :: sockets
@@ -18,6 +20,8 @@ module Middleware =
     let private removeSocket sockets socket =
         sockets
         |> List.choose (fun s -> if s <> socket then Some s else None)
+
+    let exchange = Exchange()
 
     let private sendMessage =
         fun (socket : WebSocket) (message : string) ->
@@ -29,6 +33,20 @@ module Middleware =
                     do! socket.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None)
                 else
                     sockets <- removeSocket sockets socket
+            }
+
+    let sendLimitOrderToEngine =
+        fun (limitOrder: WebSocketApp.Models.LimitOrder) ->
+            task {
+                let orderInfo = { Side = FsharpExchangeDotNetStandard.Side.Parse limitOrder.Side;
+                                  Quantity = limitOrder.Quantity; }
+                let limitOrder = { OrderInfo = orderInfo; Price = limitOrder.Price; }
+                let limitOrderReq = { Order = limitOrder; RequestType = LimitOrderRequestType.Normal; }
+                let market = { BuyCurrency = Currency.BTC; SellCurrency = Currency.USD; }
+
+                // TODO: make async
+                exchange.SendLimitOrder(limitOrderReq, market)
+                ()
             }
     
     let sendMessageToSockets =
