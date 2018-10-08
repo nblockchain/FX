@@ -53,11 +53,17 @@ module Middleware =
                         let buffer : byte[] = Array.zeroCreate 4096
                         let! ct = Async.CancellationToken
                         
-                        webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), ct)
-                        |> Async.AwaitTask
-                        |> ignore
+                        let task = webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), ct)
+                                       |> Async.AwaitTask
+                        let! _ = task
+                        return ()
 
-                    | false -> ctx.Response.StatusCode <- 400
+                    | false ->
+                        ctx.Response.StatusCode <- 400
+                        return ()
                 else
-                    next.Invoke(ctx) |> ignore
+                    let task = next.Invoke(ctx)
+                                    |> Async.AwaitTask
+                    do! task
+                    return ()
             } |> Async.StartAsTask :> Task
