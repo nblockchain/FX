@@ -29,7 +29,6 @@ type public Exchange(persistenceType: Persistence) =
         markets <- markets.Add(market, newOrderBook)
 
     let ReceiveOrderRedis (order: OrderRequest) (market: Market) =
-
         // TODO: dispose
         let redis = ConnectionMultiplexer.Connect "localhost"
         let db = redis.GetDatabase()
@@ -38,9 +37,23 @@ type public Exchange(persistenceType: Persistence) =
         let tipQueryStr = JsonConvert.SerializeObject tipQuery
         let value = db.StringGet (RedisKey.op_Implicit tipQueryStr)
         if not value.HasValue then
-            let success = db.StringSet(RedisKey.op_Implicit tipQueryStr, RedisValue.op_Implicit (order.Id.ToString()))
-            if not success then
-                failwith "Redis set failed, something wrong must be going on"
+            match order with
+            | Limit limitOrder ->
+                match limitOrder.RequestType with
+                | LimitOrderRequestType.Normal ->
+                    let success = db.StringSet(RedisKey.op_Implicit tipQueryStr,
+                                               RedisValue.op_Implicit (order.Id.ToString()))
+                    if not success then
+                        failwith "Redis set failed, something wrong must be going on"
+                    let serializedOrder = JsonConvert.SerializeObject limitOrder.Order
+                    let success = db.StringSet(RedisKey.op_Implicit (order.Id.ToString()),
+                                               RedisValue.op_Implicit (serializedOrder))
+                    if not success then
+                        failwith "Redis set failed, something wrong must be going on"
+                | _ ->
+                    failwith "makerOnly not ready yet for redis"
+            | Market marketOrder ->
+                failwith "market not ready yet for redis"
         else
             OrderBook.InsertOrderRedis order market (Guid(value.ToString()))
 

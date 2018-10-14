@@ -72,9 +72,22 @@ namespace FsharpExchange.Tests
                 Assert.That(value.IsNull, Is.EqualTo(false),
                             "should have a tip(not null) in this market");
 
-                Assert.That((string)value,
+                var orderId = value.ToString();
+                Assert.That(orderId,
                             Is.EqualTo(limitOrder.OrderInfo.Id.ToString()),
                             "received order should have same ID");
+
+                var order = db.StringGet(orderId);
+                Assert.That(order.HasValue, Is.EqualTo(true),
+                            "should have the order content");
+                Assert.That(order.IsNull, Is.EqualTo(false),
+                            "should have the order content(not null)");
+
+                var limitOrderSerialized =
+                    JsonConvert.SerializeObject(limitOrder);
+                Assert.That(order.ToString(),
+                            Is.EqualTo(limitOrderSerialized),
+                            "received order should have same content");
             }
 
             return exchange;
