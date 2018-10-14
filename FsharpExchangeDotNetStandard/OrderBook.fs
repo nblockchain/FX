@@ -4,7 +4,12 @@
 
 namespace FsharpExchangeDotNetStandard
 
+open FsharpExchangeDotNetStandard.Redis
+
 open System
+
+open StackExchange.Redis
+open Newtonsoft.Json
 
 type MatchLeftOver =
     | NoMatch
@@ -137,3 +142,22 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
             match side with
             | Side.Buy -> bidSide
             | Side.Sell -> askSide
+
+    static member internal InsertOrderRedis (order: OrderRequest) (market: Market) (tipOrderId: Guid): unit =
+        // TODO: dispose
+        let redis = ConnectionMultiplexer.Connect "localhost"
+        let db = redis.GetDatabase()
+
+        let nonTipQuery = { Market = market; Tip = false; Side = order.Side }
+        let nonTipQueryStr = JsonConvert.SerializeObject nonTipQuery
+        let value = db.StringGet (RedisKey.op_Implicit nonTipQueryStr)
+        if not value.HasValue then
+            let oneElementList = JsonConvert.SerializeObject (order.Id::List.empty)
+            let success = db.StringSet(RedisKey.op_Implicit nonTipQueryStr, RedisValue.op_Implicit (oneElementList))
+            if not success then
+                failwith "Redis set failed, something wrong must be going on"
+            ()
+        else
+            // TODO
+            ()
+

@@ -30,6 +30,7 @@ type public Exchange(persistenceType: Persistence) =
 
     let ReceiveOrderRedis (order: OrderRequest) (market: Market) =
 
+        // TODO: dispose
         let redis = ConnectionMultiplexer.Connect "localhost"
         let db = redis.GetDatabase()
 
@@ -41,8 +42,7 @@ type public Exchange(persistenceType: Persistence) =
             if not success then
                 failwith "Redis set failed, something wrong must be going on"
         else
-            //TODO
-            ()
+            OrderBook.InsertOrderRedis order market (Guid(value.ToString()))
 
     let ReceiveOrder (order: OrderRequest) (market: Market) =
         lock lockObject (

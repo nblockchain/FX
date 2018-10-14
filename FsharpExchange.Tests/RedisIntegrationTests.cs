@@ -94,7 +94,6 @@ namespace FsharpExchange.Tests
         }
 
         [Test]
-        [Ignore("Not working yet")]
         public void SendingSecondAndThirdLimitOrderMakesNonTipQueryWorkAfter()
         {
             var quantity = 1;
