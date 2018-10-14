@@ -2,8 +2,6 @@
 // Copyright (C) 2017-2018 Gate Digital Services Ltd. (Gatecoin)
 //
 
-using System.Linq;
-
 using FsharpExchangeDotNetStandard;
 using FsharpExchangeDotNetStandard.Redis;
 
@@ -17,8 +15,17 @@ namespace FsharpExchange.Tests
     public class RedisIntegrationTests
     {
 
+        [SetUp]
+        public void ClearRedis()
+        {
+            using (var redis = ConnectionMultiplexer.Connect("localhost,allowAdmin=true"))
+            {
+                var server = redis.GetServer("localhost:6379");
+                server.FlushDatabase();
+            }
+        }
+
         [Test]
-        [Ignore("doesn't work yet")]
         public void SendingALimitOrderMakesOrderBeVisibleInRedis()
         {
             var exchange = new Exchange(Persistence.Redis);

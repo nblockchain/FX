@@ -22,6 +22,8 @@ build:
 test:
   stage: test
   script:
+    - apt install -y redis-server
+    - /etc/init.d/redis-server restart
     - time (dotnet build &&
             cd FsharpExchange.Tests/ &&
             dotnet test)

@@ -19,5 +19,5 @@ type MarketQuery =
     }
 
 type Query =
-    | Market of MarketQuery
+    | MarketSide of MarketQuery
     | Order of OrderQuery
