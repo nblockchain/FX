@@ -158,7 +158,7 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
                 failwith "Redis set failed, something wrong must be going on"
         else
             let currentTail = JsonConvert.DeserializeObject<List<string>>(value.ToString())
-            let newTail = JsonConvert.SerializeObject (order.Id.ToString()::currentTail)
+            let newTail = JsonConvert.SerializeObject (List.append currentTail (order.Id.ToString()::[]))
             let success = db.StringSet(RedisKey.op_Implicit nonTipQueryStr, RedisValue.op_Implicit (newTail))
             if not success then
                 failwith "Redis set failed, something wrong must be going on"

@@ -150,6 +150,13 @@ namespace FsharpExchange.Tests
                 var orders = JsonConvert.DeserializeObject<List<string>>(values);
                 Assert.That(orders.Count, Is.EqualTo(2),
                     "should have nontip tail of 2 elements in this market now");
+
+                Assert.That(orders[0],
+                            Is.EqualTo(secondLimitOrder.OrderInfo.Id.ToString()),
+                            "first order in tail is wrong");
+                Assert.That(orders[1],
+                            Is.EqualTo(thirdLimitOrder.OrderInfo.Id.ToString()),
+                            "second order in tail is wrong");
             }
         }
 
