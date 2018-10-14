@@ -3,6 +3,7 @@
 //
 
 using System;
+using System.Linq;
 
 using FsharpExchangeDotNetStandard;
 using FsharpExchangeDotNetStandard.Redis;
@@ -27,20 +28,17 @@ namespace FsharpExchange.Tests
             }
         }
 
-        [Test]
-        public void SendingALimitOrderMakesOrderBeVisibleInRedis()
+        private Exchange CreateExchangeAndSendFirstLimitOrder
+                             (LimitOrder limitOrder)
         {
             var exchange = new Exchange(Persistence.Redis);
 
-            var quantity = 1;
-            var price = 10000;
-            var side = Side.Buy;
             var market = new Market(Currency.BTC, Currency.USD);
 
             // TODO: assert orderbook is empty first
             var orderBook = exchange[market];
 
-            var tipQuery = new MarketQuery(market, side, true);
+            var tipQuery = new MarketQuery(market, limitOrder.OrderInfo.Side, true);
 
             //e.g. {"Market":{"BuyCurrency":{"Case":"BTC"},"SellCurrency":{"Case":"USD"}},"Side":{"Case":"Buy"},"Tip":true}"
             string tipQueryStr = JsonConvert.SerializeObject(tipQuery);
@@ -56,8 +54,6 @@ namespace FsharpExchange.Tests
                             "should be empty(null) market");
             }
 
-            var limitOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), price);
             var orderReq =
                 new LimitOrderRequest(limitOrder, LimitOrderRequestType.Normal);
             exchange.SendLimitOrder(orderReq, market);
@@ -78,6 +74,66 @@ namespace FsharpExchange.Tests
                 Assert.That((string)value,
                             Is.EqualTo(limitOrder.OrderInfo.Id.ToString()),
                             "received order should have same ID");
+            }
+
+            return exchange;
+        }
+
+        [Test]
+        public void SendingFirstLimitOrderMakesTipOrderBeVisibleInRedis()
+        {
+            var quantity = 1;
+            var price = 10000;
+            var side = Side.Buy;
+            var market = new Market(Currency.BTC, Currency.USD);
+
+            var limitOrder =
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), price);
+
+            CreateExchangeAndSendFirstLimitOrder(limitOrder);
+        }
+
+        [Test]
+        [Ignore("Not working yet")]
+        public void SendingSecondAndThirdLimitOrderMakesNonTipQueryWorkAfter()
+        {
+            var quantity = 1;
+            var price = 10000;
+            var side = Side.Buy;
+            var market = new Market(Currency.BTC, Currency.USD);
+
+            var firstLimitOrder =
+                new LimitOrder(new OrderInfo(Guid.NewGuid(),
+                                             side, quantity), price);
+
+            var exchange = CreateExchangeAndSendFirstLimitOrder(firstLimitOrder);
+
+            var secondLimitOrder =
+                new LimitOrder(new OrderInfo(Guid.NewGuid(),
+                                             side, quantity), price + 1);
+            var orderReq = new LimitOrderRequest(secondLimitOrder,
+                                                 LimitOrderRequestType.Normal);
+            exchange.SendLimitOrder(orderReq, market);
+
+            var thirdLimitOrder =
+                new LimitOrder(new OrderInfo(Guid.NewGuid(),
+                                 side, quantity), price + 2);
+            orderReq = new LimitOrderRequest(thirdLimitOrder,
+                                             LimitOrderRequestType.Normal);
+            exchange.SendLimitOrder(orderReq, market);
+
+            var nonTipQuery = new MarketQuery(market, side, false);
+
+            //e.g. {"Market":{"BuyCurrency":{"Case":"BTC"},"SellCurrency":{"Case":"USD"}},"Side":{"Case":"Buy"},"Tip":true}"
+            string nontipQueryStr = JsonConvert.SerializeObject(nonTipQuery);
+
+            using (var redis = ConnectionMultiplexer.Connect("localhost"))
+            {
+                var db = redis.GetDatabase();
+
+                var values = db.StringGet(nontipQueryStr);
+                Assert.That(String.IsNullOrEmpty(values), Is.False,
+                            "should have nontip tail(not null) in this market");
             }
         }
 
