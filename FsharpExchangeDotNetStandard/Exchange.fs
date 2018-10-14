@@ -6,7 +6,8 @@ namespace FsharpExchangeDotNetStandard
 
 open System
 
-type public Exchange() =
+type public Exchange(persistenceType: Persistence) =
+
     let mutable markets: Map<Market, OrderBook> = Map.empty
 
     let lockObject = Object()
@@ -24,6 +25,8 @@ type public Exchange() =
                 let newOrderBook = orderBook.InsertOrder order
                 markets <- markets.Add(market, newOrderBook)
             )
+
+    new() = Exchange(Persistence.Memory)
 
     member x.SendMarketOrder (order: OrderInfo, market: Market) =
         ReceiveOrder (OrderRequest.Market(order)) market

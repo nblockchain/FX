@@ -46,3 +46,7 @@ type OrderBookSide =
 
 type public Market =
     { BuyCurrency: Currency; SellCurrency: Currency }
+
+type Persistence =
+    | Memory
+    | Redis
