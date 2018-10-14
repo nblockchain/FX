@@ -2,6 +2,8 @@
 // Copyright (C) 2017-2018 Gate Digital Services Ltd. (Gatecoin)
 //
 
+using System;
+
 using FsharpExchangeDotNetStandard;
 using FsharpExchangeDotNetStandard.Redis;
 
@@ -55,7 +57,7 @@ namespace FsharpExchange.Tests
             }
 
             var limitOrder =
-                new LimitOrder(new OrderInfo(side, quantity), price);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), price);
             var orderReq =
                 new LimitOrderRequest(limitOrder, LimitOrderRequestType.Normal);
             exchange.SendLimitOrder(orderReq, market);
@@ -72,6 +74,10 @@ namespace FsharpExchange.Tests
                             "should have a tip in this market");
                 Assert.That(value.IsNull, Is.EqualTo(false),
                             "should have a tip(not null) in this market");
+
+                Assert.That((string)value,
+                            Is.EqualTo(limitOrder.OrderInfo.Id.ToString()),
+                            "received order should have same ID");
             }
         }
 

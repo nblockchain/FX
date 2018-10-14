@@ -37,7 +37,7 @@ type public Exchange(persistenceType: Persistence) =
         let tipQueryStr = JsonConvert.SerializeObject tipQuery
         let value = db.StringGet (RedisKey.op_Implicit tipQueryStr)
         if not value.HasValue then
-            let success = db.StringSet(RedisKey.op_Implicit tipQueryStr, RedisValue.op_Implicit "a")
+            let success = db.StringSet(RedisKey.op_Implicit tipQueryStr, RedisValue.op_Implicit (order.Id.ToString()))
             if not success then
                 failwith "Redis set failed, something wrong must be going on"
         else

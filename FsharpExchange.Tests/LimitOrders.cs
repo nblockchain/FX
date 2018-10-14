@@ -61,11 +61,11 @@ namespace FsharpExchange.Tests
             var market = new Market(Currency.BTC, Currency.USD);
 
             var buyOrder =
-                new LimitOrder(new OrderInfo(Side.Buy, quantity), price);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), Side.Buy, quantity), price);
             Limit_order_is_accepted_by_empty_exchange(buyOrder, market);
 
             var sellOrder =
-                new LimitOrder(new OrderInfo(Side.Sell, quantity), price);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), Side.Sell, quantity), price);
             Limit_order_is_accepted_by_empty_exchange(sellOrder, market);
         }
 
@@ -117,15 +117,15 @@ namespace FsharpExchange.Tests
             var orderBook = exchange[market];
 
             var firstLimitOrder =
-                new LimitOrder(new OrderInfo(side, quantity), price);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), price);
             SendOrder(exchange, firstLimitOrder, market);
 
             var secondLimitOrder =
-                new LimitOrder(new OrderInfo(side, quantity), secondAndThirdPrice);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), secondAndThirdPrice);
             SendOrder(exchange, secondLimitOrder, market);
 
             var thirdLimitOrder =
-                new LimitOrder(new OrderInfo(side, quantity), secondAndThirdPrice);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), secondAndThirdPrice);
             SendOrder(exchange, secondLimitOrder, market);
 
             var allLimitOrdersSent = new List<LimitOrder> {
@@ -160,11 +160,11 @@ namespace FsharpExchange.Tests
             var orderBook = exchange[market];
 
             var firstLimitOrder =
-                new LimitOrder(new OrderInfo(side, quantity), price);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), price);
             SendOrder(exchange, firstLimitOrder, market);
 
             var secondLimitOrder =
-                new LimitOrder(new OrderInfo(side.Other(), quantity),
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(), quantity),
                                opposingPrice);
             SendOrder(exchange, secondLimitOrder, market);
 
@@ -209,11 +209,11 @@ namespace FsharpExchange.Tests
             var orderBook = exchange[market];
 
             var firstLimitOrder =
-                new LimitOrder(new OrderInfo(side, quantity), price);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), price);
             SendOrder(exchange, firstLimitOrder, market);
 
             var secondLimitMatchingOrder =
-                new LimitOrder(new OrderInfo(side.Other(), quantity), price);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(), quantity), price);
             SendOrder(exchange, secondLimitMatchingOrder, market);
 
             var orderBookAgain = exchange[market];
@@ -242,11 +242,11 @@ namespace FsharpExchange.Tests
             var orderBook = exchange[market];
 
             var firstLimitOrder =
-                new LimitOrder(new OrderInfo(side, quantity), price);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), price);
             SendOrder(exchange, firstLimitOrder, market);
 
             var secondLimitOrder =
-                new LimitOrder(new OrderInfo(side.Other(), quantity),
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(), quantity),
                                opposingPrice);
             SendOrder(exchange, secondLimitOrder, market);
 
@@ -277,12 +277,12 @@ namespace FsharpExchange.Tests
             var orderBook = exchange[market];
 
             var firstLimitOrder =
-                new LimitOrder(new OrderInfo(side, quantityOfFirstOrder),
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantityOfFirstOrder),
                                price);
             SendOrder(exchange, firstLimitOrder, market);
 
             var secondLimitMatchingOrder =
-                new LimitOrder(new OrderInfo(side.Other(), quantityOfSecondOrder),
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(), quantityOfSecondOrder),
                                price);
             SendOrder(exchange, secondLimitMatchingOrder, market);
 
@@ -318,19 +318,19 @@ namespace FsharpExchange.Tests
             var orderBook = exchange[market];
 
             var firstLimitOrder =
-                new LimitOrder(new OrderInfo(side,
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side,
                                              quantityOfEachOfTheSittingOrders),
                                price);
             SendOrder(exchange, firstLimitOrder, market);
 
             var secondLimitMatchingOrder =
-                new LimitOrder(new OrderInfo(side,
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side,
                                              quantityOfEachOfTheSittingOrders),
                                price);
             SendOrder(exchange, secondLimitMatchingOrder, market);
 
             var incomingLimitMatchingOrder =
-                new LimitOrder(new OrderInfo(side.Other(),
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(),
                                              quantityOfIncomingOrder),
                                price);
             SendOrder(exchange, incomingLimitMatchingOrder, market);
@@ -358,15 +358,15 @@ namespace FsharpExchange.Tests
             var exchange = new Exchange();
 
             var tipLimitOrder =
-                new LimitOrder(new OrderInfo(side, quantity), tipPrice);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), tipPrice);
             SendOrder(exchange, tipLimitOrder, market);
 
             var nonTipLimitOrder =
-                new LimitOrder(new OrderInfo(side, quantity), notTipPrice);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), notTipPrice);
             SendOrder(exchange, nonTipLimitOrder, market);
 
             var incomingLimitMatchingOrder =
-                new LimitOrder(new OrderInfo(side.Other(), quantity),
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(), quantity),
                                notTipPrice);
             SendOrder(exchange, incomingLimitMatchingOrder, market);
 
@@ -404,13 +404,13 @@ namespace FsharpExchange.Tests
             var orderBook = exchange[market];
 
             var firstLimitOrder =
-                new LimitOrder(new OrderInfo(side,
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side,
                                              quantityOfThePreviouslySittingOrder),
                                price);
             SendOrder(exchange, firstLimitOrder, market);
 
             var incomingLimitMatchingOrder =
-                new LimitOrder(new OrderInfo(side.Other(),
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(),
                                              quantityOfIncomingOrder),
                                price);
             SendOrder(exchange, incomingLimitMatchingOrder, market);
@@ -460,15 +460,15 @@ namespace FsharpExchange.Tests
                 lowestPriceOfOrderBookSide : highestPriceOfOrderBookSide;
 
             var lowestSittingLimitOrder =
-                new LimitOrder(new OrderInfo(side, quantity),
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity),
                                lowestPriceOfOrderBookSide);
 
             var highestSittingLimitOrder =
-                new LimitOrder(new OrderInfo(side, quantity),
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity),
                                highestPriceOfOrderBookSide);
 
             var limitOrderMatchingWithTipPrice =
-                new LimitOrder(new OrderInfo(side.Other(), quantity),
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(), quantity),
                                tipPrice);
 
 
@@ -476,7 +476,7 @@ namespace FsharpExchange.Tests
             var combination2 = new[] { highestSittingLimitOrder, lowestSittingLimitOrder, limitOrderMatchingWithTipPrice };
 
             var limitOrderMatchingWithNonTipPrice =
-                new LimitOrder(new OrderInfo(side.Other(), quantity),
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(), quantity),
                                nonTipPrice);
 
             var combination3 = new[] { lowestSittingLimitOrder, highestSittingLimitOrder, limitOrderMatchingWithNonTipPrice };

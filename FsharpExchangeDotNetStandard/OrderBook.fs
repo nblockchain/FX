@@ -4,6 +4,8 @@
 
 namespace FsharpExchangeDotNetStandard
 
+open System
+
 type MatchLeftOver =
     | NoMatch
     | UnmatchedLimitOrderLeftOverAfterPartialMatch of LimitOrder
@@ -40,7 +42,8 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
             else //if (quantityLeftToMatch < firstLimitOrder.Quantity)
                 let newPartialLimitOrder = { Price = firstLimitOrder.Price;
                                              OrderInfo =
-                                             { Side = firstLimitOrder.OrderInfo.Side;
+                                             { Id = firstLimitOrder.OrderInfo.Id;
+                                               Side = firstLimitOrder.OrderInfo.Side;
                                                Quantity = firstLimitOrder.OrderInfo.Quantity - quantityLeftToMatch }
                                            }
                 OrderBookSideMemoryManager.AppendOrder newPartialLimitOrder tail
@@ -68,14 +71,16 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
                 let partialRemainingQuantity = orderInBook.OrderInfo.Quantity - incomingOrder.OrderInfo.Quantity
                 let partialRemainingLimitOrder = { Price = orderInBook.Price;
                                                    OrderInfo =
-                                                   { Side = orderInBook.OrderInfo.Side;
+                                                   { Id = orderInBook.OrderInfo.Id;
+                                                     Side = orderInBook.OrderInfo.Side;
                                                      Quantity = partialRemainingQuantity }
                                                  }
                 SideLeftAfterFullMatch(OrderBookSideMemoryManager.AppendOrder partialRemainingLimitOrder restOfBookSide)
             else //if (orderInBook.Quantity < incomingOrder.Quantity)
                 let partialRemainingIncomingLimitOrder =
                     { Price = incomingOrder.Price;
-                      OrderInfo = { Side = incomingOrder.OrderInfo.Side;
+                      OrderInfo = { Id = orderInBook.OrderInfo.Id;
+                                    Side = incomingOrder.OrderInfo.Side;
                                     Quantity = incomingOrder.OrderInfo.Quantity - orderInBook.OrderInfo.Quantity }
                     }
                 let partialRemainingIncomingOrderRequest =

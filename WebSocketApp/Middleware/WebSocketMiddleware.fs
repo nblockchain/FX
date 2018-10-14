@@ -38,7 +38,8 @@ module Middleware =
     let sendLimitOrderToEngine =
         fun (limitOrder: WebSocketApp.Models.LimitOrder) ->
             task {
-                let orderInfo = { Side = FsharpExchangeDotNetStandard.Side.Parse limitOrder.Side;
+                let orderInfo = { Id = Guid.NewGuid();
+                                  Side = FsharpExchangeDotNetStandard.Side.Parse limitOrder.Side;
                                   Quantity = limitOrder.Quantity; }
                 let limitOrder = { OrderInfo = orderInfo; Price = limitOrder.Price; }
                 let limitOrderReq = { Order = limitOrder; RequestType = LimitOrderRequestType.Normal; }

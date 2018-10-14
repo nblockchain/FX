@@ -4,6 +4,8 @@
 
 namespace FsharpExchangeDotNetStandard
 
+open System
+
 exception LiquidityProblem
 exception MatchExpectationsUnmet
 
@@ -29,7 +31,7 @@ type LimitOrderRequestType =
     | MakerOnly
 
 type OrderInfo =
-    { Side: Side; Quantity: decimal; }
+    { Id: Guid; Side: Side; Quantity: decimal; }
 
 type LimitOrder =
     { OrderInfo: OrderInfo; Price: decimal }
@@ -48,6 +50,14 @@ type OrderRequest =
                 item.Side
             | Limit item ->
                 item.Order.OrderInfo.Side
+
+    member this.Id
+        with get() =
+            match this with
+            | Market item ->
+                item.Id
+            | Limit item ->
+                item.Order.OrderInfo.Id
 
 type OrderBookSide =
     list<LimitOrder>

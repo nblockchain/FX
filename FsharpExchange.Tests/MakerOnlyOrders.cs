@@ -2,6 +2,7 @@
 // Copyright (C) 2017-2018 Gate Digital Services Ltd. (Gatecoin)
 //
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -51,11 +52,11 @@ namespace FsharpExchange.Tests
             var someMarket = new Market(Currency.BTC, Currency.USD);
 
             var buyOrder =
-                new LimitOrder(new OrderInfo(Side.Buy, quantity), price);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), Side.Buy, quantity), price);
             Limit_order_is_accepted_by_empty_exchange(buyOrder, someMarket);
 
             var sellOrder =
-                new LimitOrder(new OrderInfo(Side.Sell, quantity), price);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), Side.Sell, quantity), price);
             Limit_order_is_accepted_by_empty_exchange(sellOrder, someMarket);
         }
 
@@ -80,15 +81,15 @@ namespace FsharpExchange.Tests
             var orderBook = exchange[market];
 
             var firstLimitOrder =
-                new LimitOrder(new OrderInfo(side, quantity), price);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), price);
             SendOrder(exchange, firstLimitOrder, market);
 
             var secondLimitOrder =
-                new LimitOrder(new OrderInfo(side, quantity), secondAndThirdPrice);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), secondAndThirdPrice);
             SendOrder(exchange, secondLimitOrder, market);
 
             var thirdLimitOrder =
-                new LimitOrder(new OrderInfo(side, quantity), secondAndThirdPrice);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), secondAndThirdPrice);
             SendOrder(exchange, secondLimitOrder, market);
 
             var allLimitOrdersSent = new List<LimitOrder> {
@@ -124,11 +125,11 @@ namespace FsharpExchange.Tests
             var orderBook = exchange[market];
 
             var firstMakerOnlyOrder =
-                new LimitOrder(new OrderInfo(side, quantity), price);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), price);
             SendOrder(exchange, firstMakerOnlyOrder, market);
 
             var secondMakerOnlyOrder =
-                new LimitOrder(new OrderInfo(side.Other(), quantity),
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(), quantity),
                                opposingPrice);
             SendOrder(exchange, secondMakerOnlyOrder, market);
 
@@ -173,11 +174,11 @@ namespace FsharpExchange.Tests
             var orderBook = exchange[market];
 
             var firstLimitOrder =
-                new LimitOrder(new OrderInfo(side, quantity), price);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), price);
             SendOrder(exchange, firstLimitOrder, market);
 
             var secondLimitMatchingOrder =
-                new LimitOrder(new OrderInfo(side.Other(), quantity), price);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(), quantity), price);
             Assert.Throws<MatchExpectationsUnmet>(() =>
             {
                 SendOrder(exchange, secondLimitMatchingOrder, market);
