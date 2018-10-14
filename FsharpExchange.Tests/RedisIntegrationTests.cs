@@ -3,6 +3,7 @@
 //
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 using FsharpExchangeDotNetStandard;
@@ -133,6 +134,9 @@ namespace FsharpExchange.Tests
                 var values = db.StringGet(nontipQueryStr);
                 Assert.That(String.IsNullOrEmpty(values), Is.False,
                             "should have nontip tail(not null) in this market");
+                var orders = JsonConvert.DeserializeObject<List<string>>(values);
+                Assert.That(orders.Count, Is.EqualTo(2),
+                    "should have nontip tail of 2 elements in this market now");
             }
         }
 
