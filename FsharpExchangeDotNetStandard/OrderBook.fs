@@ -16,6 +16,18 @@ type MatchLeftOver =
     | UnmatchedLimitOrderLeftOverAfterPartialMatch of LimitOrder
     | SideLeftAfterFullMatch of OrderBookSide
 
+module OrderRedisManager =
+    let InsertOrder (limitOrder: LimitOrder) =
+        // TODO: dispose
+        let redis = ConnectionMultiplexer.Connect "localhost"
+        let db = redis.GetDatabase()
+
+        let serializedOrder = JsonConvert.SerializeObject limitOrder
+        let success = db.StringSet(RedisKey.op_Implicit (limitOrder.OrderInfo.Id.ToString()),
+                                   RedisValue.op_Implicit (serializedOrder))
+        if not success then
+            failwith "Redis set failed, something wrong must be going on"
+
 module OrderBookSideMemoryManager =
     let rec AppendOrder (order: LimitOrder) (orderBookSide: OrderBookSide): OrderBookSide =
         match orderBookSide with
@@ -163,3 +175,10 @@ type OrderBook(bidSide: OrderBookSide, askSide: OrderBookSide) =
             if not success then
                 failwith "Redis set failed, something wrong must be going on"
 
+        match order with
+        | Limit limitOrder ->
+            match limitOrder.RequestType with
+            | LimitOrderRequestType.Normal ->
+                OrderRedisManager.InsertOrder limitOrder.Order
+            | _ -> failwith "makerOnly not supported yet for redis"
+        | _ -> failwith "market not supported yet for redis"

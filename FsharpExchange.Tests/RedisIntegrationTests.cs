@@ -157,6 +157,28 @@ namespace FsharpExchange.Tests
                 Assert.That(orders[1],
                             Is.EqualTo(thirdLimitOrder.OrderInfo.Id.ToString()),
                             "second order in tail is wrong");
+
+                var order2 = db.StringGet(orders[0]);
+                Assert.That(order2.HasValue, Is.EqualTo(true),
+                            "should have the second order content");
+                Assert.That(order2.IsNull, Is.EqualTo(false),
+                            "should have the second order content(not null)");
+                var secondLimitOrderSerialized =
+                    JsonConvert.SerializeObject(secondLimitOrder);
+                Assert.That(order2.ToString(),
+                            Is.EqualTo(secondLimitOrderSerialized),
+                            "received second order should have same content");
+
+                var order3 = db.StringGet(orders[1]);
+                Assert.That(order3.HasValue, Is.EqualTo(true),
+                            "should have the third order content");
+                Assert.That(order3.IsNull, Is.EqualTo(false),
+                            "should have the third order content(not null)");
+                var thirdLimitOrderSerialized =
+                    JsonConvert.SerializeObject(thirdLimitOrder);
+                Assert.That(order3.ToString(),
+                            Is.EqualTo(thirdLimitOrderSerialized),
+                            "received second order should have same content");
             }
         }
 

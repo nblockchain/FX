@@ -45,11 +45,7 @@ type public Exchange(persistenceType: Persistence) =
                                                RedisValue.op_Implicit (order.Id.ToString()))
                     if not success then
                         failwith "Redis set failed, something wrong must be going on"
-                    let serializedOrder = JsonConvert.SerializeObject limitOrder.Order
-                    let success = db.StringSet(RedisKey.op_Implicit (order.Id.ToString()),
-                                               RedisValue.op_Implicit (serializedOrder))
-                    if not success then
-                        failwith "Redis set failed, something wrong must be going on"
+                    OrderRedisManager.InsertOrder limitOrder.Order
                 | _ ->
                     failwith "makerOnly not ready yet for redis"
             | Market marketOrder ->
