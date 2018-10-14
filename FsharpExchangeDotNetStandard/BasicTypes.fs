@@ -41,6 +41,14 @@ type OrderRequest =
     | Market of OrderInfo
     | Limit of LimitOrderRequest
 
+    member this.Side
+        with get() =
+            match this with
+            | Market item ->
+                item.Side
+            | Limit item ->
+                item.Order.OrderInfo.Side
+
 type OrderBookSide =
     list<LimitOrder>
 

@@ -29,17 +29,11 @@ type public Exchange(persistenceType: Persistence) =
         markets <- markets.Add(market, newOrderBook)
 
     let ReceiveOrderRedis (order: OrderRequest) (market: Market) =
-        let side =
-            match order with
-            | Market item ->
-                item.Side
-            | Limit item ->
-                item.Order.OrderInfo.Side
 
         let redis = ConnectionMultiplexer.Connect "localhost"
         let db = redis.GetDatabase()
 
-        let tipQuery = { Market = market; Tip = true; Side = side }
+        let tipQuery = { Market = market; Tip = true; Side = order.Side }
         let tipQueryStr = JsonConvert.SerializeObject tipQuery
         let value = db.StringGet (RedisKey.op_Implicit tipQueryStr)
         if not value.HasValue then
