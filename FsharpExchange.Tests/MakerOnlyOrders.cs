@@ -1,4 +1,4 @@
-//
+﻿//
 // Copyright (C) 2017-2018 Gate Digital Services Ltd. (Gatecoin)
 //
 
@@ -32,7 +32,7 @@ namespace FsharpExchange.Tests
             SendOrder(exchange, limitOrder, market);
             var someOrderBookAgain = exchange[market];
             Assert.That(someOrderBookAgain[side].Count(), Is.EqualTo(1));
-            var uniqueLimitOrder = someOrderBookAgain[side].ElementAt(0);
+            var uniqueLimitOrder = someOrderBookAgain[side].Tip.Value;
             Assert.That(uniqueLimitOrder.OrderInfo.Side, Is.EqualTo(side));
             Assert.That(uniqueLimitOrder.Price,
                         Is.EqualTo(limitOrder.Price));
@@ -99,7 +99,17 @@ namespace FsharpExchange.Tests
             var orderBookAgain = exchange[market];
 
             Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
-            var ourSide = new List<LimitOrder>(orderBookAgain[side]);
+            var ourSide = new List<LimitOrder>();
+            var orderBookThisSide = orderBookAgain[side];
+            while (true) {
+                try {
+                    var tip = orderBookThisSide.Tip.Value;
+                    ourSide.Add(tip);
+                    orderBookThisSide = orderBookThisSide.Tail.Value;
+                } catch {
+                    break;
+                }
+            }
             LimitOrders.AssertAreSameOrdersRegardlessOfOrder(allLimitOrdersSent,
                                                              ourSide);
         }
@@ -136,7 +146,7 @@ namespace FsharpExchange.Tests
             var orderBookAgain = exchange[market];
 
             Assert.That(orderBookAgain[side].Count(), Is.EqualTo(1));
-            var aLimitOrder = orderBookAgain[side].ElementAt(0);
+            var aLimitOrder = orderBookAgain[side].Tip.Value;
             Assert.That(aLimitOrder.OrderInfo.Side,
                         Is.EqualTo(firstMakerOnlyOrder.OrderInfo.Side));
             Assert.That(aLimitOrder.Price,
@@ -145,7 +155,7 @@ namespace FsharpExchange.Tests
                         Is.EqualTo(firstMakerOnlyOrder.OrderInfo.Quantity));
 
             Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(1));
-            var anotherLimitOrder = orderBookAgain[side.Other()].ElementAt(0);
+            var anotherLimitOrder = orderBookAgain[side.Other()].Tip.Value;
             Assert.That(anotherLimitOrder.OrderInfo.Side,
                         Is.EqualTo(secondMakerOnlyOrder.OrderInfo.Side));
             Assert.That(anotherLimitOrder.Price,

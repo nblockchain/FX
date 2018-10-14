@@ -1,4 +1,4 @@
-//
+﻿//
 // Copyright (C) 2017-2018 Gate Digital Services Ltd. (Gatecoin)
 //
 
@@ -105,7 +105,7 @@ namespace FsharpExchange.Tests
             Assert.That(btcUsdOrderBookAfterException[otherSide].Count(),
                         Is.EqualTo(1));
             var uniqueLimitOrder =
-                btcUsdOrderBookAfterException[otherSide].ElementAt(0);
+                btcUsdOrderBookAfterException[otherSide].Tip.Value;
             Assert.That(uniqueLimitOrder.OrderInfo.Side, Is.EqualTo(otherSide));
             Assert.That(uniqueLimitOrder.Price,
                         Is.EqualTo(limitOrder.Price));
@@ -158,7 +158,7 @@ namespace FsharpExchange.Tests
                         Is.EqualTo(2));
 
             var firstLimitOrderAfterException =
-                btcUsdOrderBookAfterException[otherSide].ElementAt(0);
+                btcUsdOrderBookAfterException[otherSide].Tip.Value;
             Assert.That(firstLimitOrderAfterException.OrderInfo.Side,
                         Is.EqualTo(otherSide));
             Assert.That(firstLimitOrderAfterException.Price,
@@ -166,7 +166,7 @@ namespace FsharpExchange.Tests
             Assert.That(firstLimitOrderAfterException.OrderInfo.Quantity,
                         Is.EqualTo(limitOrder1.OrderInfo.Quantity));
             var secondLimitOrderAfterException =
-                btcUsdOrderBookAfterException[otherSide].ElementAt(1);
+                btcUsdOrderBookAfterException[otherSide].Tail.Value.Tip.Value;
             Assert.That(secondLimitOrderAfterException.OrderInfo.Side,
                         Is.EqualTo(otherSide));
             Assert.That(secondLimitOrderAfterException.Price,
@@ -249,7 +249,7 @@ namespace FsharpExchange.Tests
             Assert.That(btcUsdOrderBookAfterMatching[side].Count(),
                         Is.EqualTo(1));
             var limitOrderLeftAfterPartialMatch =
-                btcUsdOrderBookAfterMatching[side].ElementAt(0);
+                btcUsdOrderBookAfterMatching[side].Tip.Value;
             Assert.That(limitOrderLeftAfterPartialMatch.OrderInfo.Side,
                         Is.EqualTo(side));
             Assert.That(limitOrderLeftAfterPartialMatch.Price,
@@ -293,7 +293,7 @@ namespace FsharpExchange.Tests
             Assert.That(btcUsdOrderBookAfterMatching[side].Count(),
                         Is.EqualTo(1));
             var limitOrderLeftAfterPartialMatch =
-                btcUsdOrderBookAfterMatching[side].ElementAt(0);
+                btcUsdOrderBookAfterMatching[side].Tip.Value;
             Assert.That(limitOrderLeftAfterPartialMatch.OrderInfo.Side,
                         Is.EqualTo(side));
             Assert.That(limitOrderLeftAfterPartialMatch.Price,

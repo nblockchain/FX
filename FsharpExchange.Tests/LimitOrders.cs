@@ -41,7 +41,7 @@ namespace FsharpExchange.Tests
             SendOrder(exchange, limitOrder, market);
             var btcUsdOrderBookAgain = exchange[market];
             Assert.That(btcUsdOrderBookAgain[side].Count(), Is.EqualTo(1));
-            var uniqueLimitOrder = btcUsdOrderBookAgain[side].ElementAt(0);
+            var uniqueLimitOrder = btcUsdOrderBookAgain[side].Tip.Value;
             Assert.That(uniqueLimitOrder.OrderInfo.Side, Is.EqualTo(side));
             Assert.That(uniqueLimitOrder.Price,
                         Is.EqualTo(limitOrder.Price));
@@ -135,7 +135,23 @@ namespace FsharpExchange.Tests
             var orderBookAgain = exchange[market];
 
             Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
-            var ourSide = new List<LimitOrder>(orderBookAgain[side]);
+            var ourSide = new List<LimitOrder>();
+
+            var orderBookThisSide = orderBookAgain[side];
+            while (true)
+            {
+                try
+                {
+                    var tip = orderBookThisSide.Tip.Value;
+                    ourSide.Add(tip);
+                    orderBookThisSide = orderBookThisSide.Tail.Value;
+                }
+                catch
+                {
+                    break;
+                }
+            }
+
             AssertAreSameOrdersRegardlessOfOrder(allLimitOrdersSent, ourSide);
         }
 
@@ -171,7 +187,7 @@ namespace FsharpExchange.Tests
             var orderBookAgain = exchange[market];
 
             Assert.That(orderBookAgain[side].Count(), Is.EqualTo(1));
-            var aLimitOrder = orderBookAgain[side].ElementAt(0);
+            var aLimitOrder = orderBookAgain[side].Tip.Value;
             Assert.That(aLimitOrder.OrderInfo.Side,
                         Is.EqualTo(firstLimitOrder.OrderInfo.Side));
             Assert.That(aLimitOrder.Price,
@@ -180,7 +196,7 @@ namespace FsharpExchange.Tests
                         Is.EqualTo(firstLimitOrder.OrderInfo.Quantity));
 
             Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(1));
-            var anotherLimitOrder = orderBookAgain[side.Other()].ElementAt(0);
+            var anotherLimitOrder = orderBookAgain[side.Other()].Tip.Value;
             Assert.That(anotherLimitOrder.OrderInfo.Side,
                         Is.EqualTo(secondLimitOrder.OrderInfo.Side));
             Assert.That(anotherLimitOrder.Price,
@@ -289,7 +305,7 @@ namespace FsharpExchange.Tests
             var orderBookAgain = exchange[market];
             Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
             Assert.That(orderBookAgain[side].Count(), Is.EqualTo(1));
-            var leftOverLimitOrder = orderBookAgain[side].ElementAt(0);
+            var leftOverLimitOrder = orderBookAgain[side].Tip.Value;
             Assert.That(leftOverLimitOrder.OrderInfo.Side,
                         Is.EqualTo(side));
             Assert.That(leftOverLimitOrder.Price,
@@ -375,7 +391,7 @@ namespace FsharpExchange.Tests
             Assert.That(orderBook[side.Other()].Count(), Is.EqualTo(0));
             Assert.That(orderBook[side].Count(), Is.EqualTo(1));
 
-            var leftOverLimitOrder = orderBook[side].ElementAt(0);
+            var leftOverLimitOrder = orderBook[side].Tip.Value;
             Assert.That(leftOverLimitOrder.OrderInfo.Side,
                         Is.EqualTo(side));
             Assert.That(leftOverLimitOrder.OrderInfo.Quantity,
@@ -419,7 +435,7 @@ namespace FsharpExchange.Tests
             Assert.That(orderBookAgain[side].Count(), Is.EqualTo(0));
             Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(1));
 
-            var leftOverLimitOrder = orderBookAgain[side.Other()].ElementAt(0);
+            var leftOverLimitOrder = orderBookAgain[side.Other()].Tip.Value;
             Assert.That(leftOverLimitOrder.OrderInfo.Side,
                         Is.EqualTo(incomingLimitMatchingOrder.OrderInfo.Side));
             Assert.That(leftOverLimitOrder.Price,
@@ -503,7 +519,7 @@ namespace FsharpExchange.Tests
                 Assert.That(orderBook[side].Count(), Is.EqualTo(1),
                             "(count of this side) " + testMsg);
 
-                var leftOverLimitOrder = orderBook[side].ElementAt(0);
+                var leftOverLimitOrder = orderBook[side].Tip.Value;
                 Assert.That(leftOverLimitOrder.OrderInfo.Side,
                             Is.EqualTo(side));
 

@@ -59,8 +59,31 @@ type OrderRequest =
             | Limit item ->
                 item.Order.OrderInfo.Id
 
-type OrderBookSide =
-    list<LimitOrder>
+type IOrderBookSide =
+   abstract member IfEmptyElse: (unit->'T) -> (LimitOrder -> IOrderBookSide -> 'T) -> 'T
+   abstract member Prepend: LimitOrder -> IOrderBookSide
+   abstract member Tip: Option<LimitOrder>
+   abstract member Tail: Option<IOrderBookSide>
+   abstract member Count: unit -> int
+
+type MemoryOrderBookSide(memoryList: List<LimitOrder>) =
+    interface IOrderBookSide with
+        member this.IfEmptyElse (ifEmptyFunc) (elseFunc) =
+            match memoryList with
+            | [] -> ifEmptyFunc ()
+            | head::tail ->
+                let tailSide = MemoryOrderBookSide(tail):>IOrderBookSide
+                elseFunc head tailSide
+        member this.Tip =
+            List.tryHead memoryList
+        member this.Tail =
+            match memoryList with
+            | [] -> None
+            | _::tail -> MemoryOrderBookSide(tail):>IOrderBookSide |> Some
+        member this.Prepend (limitOrder: LimitOrder) =
+            MemoryOrderBookSide(limitOrder::memoryList):>IOrderBookSide
+        member this.Count () =
+            memoryList.Length
 
 type public Market =
     { BuyCurrency: Currency; SellCurrency: Currency }
