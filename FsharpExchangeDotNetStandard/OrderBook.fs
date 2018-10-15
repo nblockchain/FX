@@ -16,18 +16,6 @@ type MatchLeftOver =
     | UnmatchedLimitOrderLeftOverAfterPartialMatch of LimitOrder
     | SideLeftAfterFullMatch of IOrderBookSide
 
-module OrderRedisManager =
-    let InsertOrder (limitOrder: LimitOrder) =
-        // TODO: dispose
-        let redis = ConnectionMultiplexer.Connect "localhost"
-        let db = redis.GetDatabase()
-
-        let serializedOrder = JsonConvert.SerializeObject limitOrder
-        let success = db.StringSet(RedisKey.op_Implicit (limitOrder.OrderInfo.Id.ToString()),
-                                   RedisValue.op_Implicit (serializedOrder))
-        if not success then
-            failwith "Redis set failed, something wrong must be going on"
-
 module OrderBookSideMemoryManager =
     let rec AppendOrder (order: LimitOrder) (orderBookSide: IOrderBookSide): IOrderBookSide =
         orderBookSide.IfEmptyElse
@@ -170,17 +158,14 @@ type OrderBook(bidSide: IOrderBookSide, askSide: IOrderBookSide) =
         let nonTipQuery = { Market = market; Tip = false; Side = order.Side }
         let nonTipQueryStr = JsonConvert.SerializeObject nonTipQuery
         let value = db.StringGet (RedisKey.op_Implicit nonTipQueryStr)
-        if not value.HasValue then
-            let oneElementList = JsonConvert.SerializeObject (order.Id::List.empty)
-            let success = db.StringSet(RedisKey.op_Implicit nonTipQueryStr, RedisValue.op_Implicit (oneElementList))
-            if not success then
-                failwith "Redis set failed, something wrong must be going on"
-        else
-            let currentTail = JsonConvert.DeserializeObject<List<string>>(value.ToString())
-            let newTail = JsonConvert.SerializeObject (List.append currentTail (order.Id.ToString()::[]))
-            let success = db.StringSet(RedisKey.op_Implicit nonTipQueryStr, RedisValue.op_Implicit (newTail))
-            if not success then
-                failwith "Redis set failed, something wrong must be going on"
+        let newTail =
+            if not value.HasValue then
+                order.Id.ToString()::List.empty
+            else
+                let currentTail = JsonConvert.DeserializeObject<List<string>>(value.ToString())
+                List.append currentTail (order.Id.ToString()::[])
+
+        OrderRedisManager.SetTail newTail nonTipQueryStr
 
         match order with
         | Limit limitOrder ->
