@@ -123,14 +123,14 @@ namespace FsharpExchange.Tests
 
             var secondLimitOrder =
                 new LimitOrder(new OrderInfo(Guid.NewGuid(),
-                                             side, quantity), price + 1);
+                                             side, quantity), price - 1);
             var orderReq = new LimitOrderRequest(secondLimitOrder,
                                                  LimitOrderRequestType.Normal);
             exchange.SendLimitOrder(orderReq, market);
 
             var thirdLimitOrder =
                 new LimitOrder(new OrderInfo(Guid.NewGuid(),
-                                 side, quantity), price + 2);
+                                 side, quantity), price - 2);
             orderReq = new LimitOrderRequest(thirdLimitOrder,
                                              LimitOrderRequestType.Normal);
             exchange.SendLimitOrder(orderReq, market);
