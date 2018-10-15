@@ -31,10 +31,10 @@ type Query =
 type OrderBookSide(market: Market, side: Side) =
     let tipQuery = { Market = market; Tip = true; Side = side }
     let tipQueryStr = JsonConvert.SerializeObject tipQuery
-    let nonTipQuery = { Market = market; Tip = false; Side = side }
-    let nonTipQueryStr = JsonConvert.SerializeObject nonTipQuery
+    let tailQuery = { Market = market; Tip = false; Side = side }
+    let tailQueryStr = JsonConvert.SerializeObject tailQuery
     member __.TipQuery = tipQueryStr
-    member __.NonTipQuery = nonTipQueryStr
+    member __.TailQuery = tailQueryStr
 
 type HeadPointer =
     | Root
@@ -89,7 +89,7 @@ module OrderRedisManager =
         GetOrderByGuidString (guid.ToString())
 
     let GetTail (orderBookSide: OrderBookSide): List<string> =
-        let tail = db.StringGet (RedisKey.op_Implicit orderBookSide.NonTipQuery)
+        let tail = db.StringGet (RedisKey.op_Implicit orderBookSide.TailQuery)
         if not tail.HasValue then
             List.empty
         else
@@ -97,7 +97,7 @@ module OrderRedisManager =
 
     let SetTail (limitOrderGuids: List<string>) (orderBookSide: OrderBookSide): unit =
         let serializedGuids = JsonConvert.SerializeObject limitOrderGuids
-        let success = db.StringSet(RedisKey.op_Implicit orderBookSide.NonTipQuery,
+        let success = db.StringSet(RedisKey.op_Implicit orderBookSide.TailQuery,
                                    RedisValue.op_Implicit serializedGuids)
         if not success then
             failwith "Redis set(nonTip) failed, something wrong must be going on"
