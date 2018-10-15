@@ -182,5 +182,61 @@ namespace FsharpExchange.Tests
             }
         }
 
+        [Test]
+        [Ignore("not working yet")]
+        public void TipIsReplaced()
+        {
+            var quantity = 1;
+            var price = 10000;
+            var side = Side.Buy;
+            var market = new Market(Currency.BTC, Currency.USD);
+
+            var firstLimitOrder =
+                new LimitOrder(new OrderInfo(Guid.NewGuid(),
+                                             side, quantity), price);
+
+            var exchange = CreateExchangeAndSendFirstLimitOrder(firstLimitOrder);
+
+            var secondLimitOrder =
+                new LimitOrder(new OrderInfo(Guid.NewGuid(),
+                                             side, quantity), price + 1);
+            var orderReq = new LimitOrderRequest(secondLimitOrder,
+                                                 LimitOrderRequestType.Normal);
+            exchange.SendLimitOrder(orderReq, market);
+
+
+            var nonTipQuery = new MarketQuery(market, side, false);
+
+            //e.g. {"Market":{"BuyCurrency":{"Case":"BTC"},"SellCurrency":{"Case":"USD"}},"Side":{"Case":"Buy"},"Tip":true}"
+            string nontipQueryStr = JsonConvert.SerializeObject(nonTipQuery);
+
+            using (var redis = ConnectionMultiplexer.Connect("localhost"))
+            {
+                var db = redis.GetDatabase();
+
+                var values = db.StringGet(nontipQueryStr);
+                Assert.That(String.IsNullOrEmpty(values), Is.False,
+                            "should have nontip tail(not null) in this market");
+                var orders = JsonConvert.DeserializeObject<List<string>>(values);
+                Assert.That(orders.Count, Is.EqualTo(1),
+                    "should have nontip tail of 2 elements in this market now");
+
+                Assert.That(orders[0],
+                            Is.EqualTo(firstLimitOrder.OrderInfo.Id.ToString()),
+                            "first order in tail should now be first order");
+
+                var theOrder = db.StringGet(orders[0]);
+                Assert.That(theOrder.HasValue, Is.EqualTo(true),
+                            "should have the second order content");
+                Assert.That(theOrder.IsNull, Is.EqualTo(false),
+                            "should have the second order content(not null)");
+                var firstLimitOrderSerialized =
+                    JsonConvert.SerializeObject(firstLimitOrder);
+                Assert.That(theOrder.ToString(),
+                            Is.EqualTo(firstLimitOrderSerialized),
+                            "received second order should have same content");
+            }
+        }
+
     }
 }
