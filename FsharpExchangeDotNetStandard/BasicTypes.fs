@@ -65,6 +65,7 @@ type IOrderBookSide =
    abstract member Tip: Option<LimitOrder>
    abstract member Tail: Option<IOrderBookSide>
    abstract member Count: unit -> int
+   abstract member SyncAsRoot: unit -> unit
 
 type MemoryOrderBookSide(memoryList: List<LimitOrder>) =
     interface IOrderBookSide with
@@ -84,6 +85,8 @@ type MemoryOrderBookSide(memoryList: List<LimitOrder>) =
             MemoryOrderBookSide(limitOrder::memoryList):>IOrderBookSide
         member this.Count () =
             memoryList.Length
+        member this.SyncAsRoot () =
+            () // NOP, no need for memory
 
 type public Market =
     { BuyCurrency: Currency; SellCurrency: Currency }

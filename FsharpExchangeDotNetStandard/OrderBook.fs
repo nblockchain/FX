@@ -16,10 +16,11 @@ type MatchLeftOver =
     | UnmatchedLimitOrderLeftOverAfterPartialMatch of LimitOrder
     | SideLeftAfterFullMatch of IOrderBookSide
 
-module OrderBookSideMemoryManager =
+type OrderBook(bidSide: IOrderBookSide, askSide: IOrderBookSide, emptySide: Side -> IOrderBookSide) =
+
     let rec AppendOrder (order: LimitOrder) (orderBookSide: IOrderBookSide): IOrderBookSide =
         orderBookSide.IfEmptyElse
-            (fun _ -> MemoryOrderBookSide([ order ]):>IOrderBookSide)
+            (fun _ -> (emptySide order.OrderInfo.Side).Prepend order)
             (fun head tail ->
                 if (head.OrderInfo.Side <> order.OrderInfo.Side) then
                     failwith "Assertion failed, should not mix different sides in same OrderBookSide structure"
@@ -36,8 +37,6 @@ module OrderBookSideMemoryManager =
                     newTail.Prepend head
             )
 
-type OrderBook(bidSide: IOrderBookSide, askSide: IOrderBookSide) =
-
     let rec MatchMarket (quantityLeftToMatch: decimal) (orderBookSide: IOrderBookSide): IOrderBookSide =
         orderBookSide.IfEmptyElse
             (fun _ -> raise LiquidityProblem)
@@ -47,13 +46,14 @@ type OrderBook(bidSide: IOrderBookSide, askSide: IOrderBookSide) =
                 elif (quantityLeftToMatch = firstLimitOrder.OrderInfo.Quantity) then
                     tail
                 else //if (quantityLeftToMatch < firstLimitOrder.Quantity)
+                    let side = firstLimitOrder.OrderInfo.Side
                     let newPartialLimitOrder = { Price = firstLimitOrder.Price;
                                                  OrderInfo =
                                                  { Id = firstLimitOrder.OrderInfo.Id;
-                                                   Side = firstLimitOrder.OrderInfo.Side;
+                                                   Side = side;
                                                    Quantity = firstLimitOrder.OrderInfo.Quantity - quantityLeftToMatch }
                                                }
-                    OrderBookSideMemoryManager.AppendOrder newPartialLimitOrder tail
+                    AppendOrder newPartialLimitOrder tail
             )
 
     let rec MatchLimitOrders (orderInBook: LimitOrder)
@@ -77,13 +77,14 @@ type OrderBook(bidSide: IOrderBookSide, askSide: IOrderBookSide) =
                 SideLeftAfterFullMatch(restOfBookSide)
             elif (orderInBook.OrderInfo.Quantity > incomingOrder.OrderInfo.Quantity) then
                 let partialRemainingQuantity = orderInBook.OrderInfo.Quantity - incomingOrder.OrderInfo.Quantity
+                let side = orderInBook.OrderInfo.Side
                 let partialRemainingLimitOrder = { Price = orderInBook.Price;
                                                    OrderInfo =
                                                    { Id = orderInBook.OrderInfo.Id;
-                                                     Side = orderInBook.OrderInfo.Side;
+                                                     Side = side;
                                                      Quantity = partialRemainingQuantity }
                                                  }
-                SideLeftAfterFullMatch(OrderBookSideMemoryManager.AppendOrder partialRemainingLimitOrder restOfBookSide)
+                SideLeftAfterFullMatch(AppendOrder partialRemainingLimitOrder restOfBookSide)
             else //if (orderInBook.Quantity < incomingOrder.Quantity)
                 let partialRemainingIncomingLimitOrder =
                     { Price = incomingOrder.Price;
@@ -101,37 +102,53 @@ type OrderBook(bidSide: IOrderBookSide, askSide: IOrderBookSide) =
         else
             NoMatch
 
-    let EmptyOrderBookSide () =
-        MemoryOrderBookSide([]):>IOrderBookSide
+    let EmptyOrderBookSide (side: Side) =
+        emptySide side
+
+    let emptyAskSide() =
+        emptySide Side.Sell
+
+    let emptyBidSide() =
+        emptySide Side.Buy
 
     let rec MatchLimit (incomingOrderRequest: LimitOrderRequest) (orderBookSide: OrderBook)
                      : OrderBook =
         let incomingOrder = incomingOrderRequest.Order
         match incomingOrder.OrderInfo.Side with
         | Side.Buy ->
+
             askSide.IfEmptyElse
-                (fun _ -> OrderBook(OrderBookSideMemoryManager.AppendOrder incomingOrder bidSide, askSide))
+                (fun _ -> OrderBook(AppendOrder incomingOrder bidSide, askSide,
+                                    emptySide))
                 (fun firstSellLimitOrder restOfAskSide ->
                     let maybeMatchingResultSide = MatchLimitOrders firstSellLimitOrder incomingOrderRequest restOfAskSide
                     match maybeMatchingResultSide with
-                    | NoMatch -> OrderBook(OrderBookSideMemoryManager.AppendOrder incomingOrder bidSide, askSide)
-                    | SideLeftAfterFullMatch(newAskSide) -> OrderBook(bidSide, newAskSide)
+                    | NoMatch -> OrderBook(AppendOrder incomingOrder bidSide, askSide,
+                                           emptySide)
+                    | SideLeftAfterFullMatch(newAskSide) -> OrderBook(bidSide, newAskSide, emptySide)
                     | UnmatchedLimitOrderLeftOverAfterPartialMatch(leftOverOrder) ->
-                        OrderBook(OrderBookSideMemoryManager.AppendOrder leftOverOrder bidSide, EmptyOrderBookSide ())
+                        OrderBook(AppendOrder leftOverOrder bidSide,
+                                  EmptyOrderBookSide Side.Sell,
+                                  emptySide)
                 )
         | Side.Sell ->
             bidSide.IfEmptyElse
-                (fun _ -> OrderBook(bidSide, OrderBookSideMemoryManager.AppendOrder incomingOrder askSide))
+                (fun _ -> OrderBook(bidSide, AppendOrder incomingOrder askSide,
+                                    emptySide))
                 (fun firstBuyLimitOrder restOfBidSide ->
                     let maybeMatchingResultSide = MatchLimitOrders firstBuyLimitOrder incomingOrderRequest restOfBidSide
                     match maybeMatchingResultSide with
-                    | NoMatch -> OrderBook(bidSide, OrderBookSideMemoryManager.AppendOrder incomingOrder askSide)
-                    | SideLeftAfterFullMatch(newBidSide) -> OrderBook(newBidSide, askSide)
+                    | NoMatch -> OrderBook(bidSide, AppendOrder incomingOrder askSide, emptySide)
+                    | SideLeftAfterFullMatch(newBidSide) -> OrderBook(newBidSide, askSide, emptySide)
                     | UnmatchedLimitOrderLeftOverAfterPartialMatch(leftOverOrder) ->
-                        OrderBook(EmptyOrderBookSide (), OrderBookSideMemoryManager.AppendOrder leftOverOrder askSide)
+                        OrderBook(EmptyOrderBookSide Side.Buy,
+                                  AppendOrder leftOverOrder askSide,
+                                  emptySide)
                 )
 
-    new() = OrderBook(MemoryOrderBookSide([]):>IOrderBookSide, MemoryOrderBookSide([]):>IOrderBookSide)
+    member __.SyncAsRoot() =
+        bidSide.SyncAsRoot()
+        askSide.SyncAsRoot()
 
     member internal this.InsertOrder (order: OrderRequest): OrderBook =
         match order with
@@ -140,9 +157,9 @@ type OrderBook(bidSide: IOrderBookSide, askSide: IOrderBookSide) =
         | Market(marketOrder) ->
             match marketOrder.Side with
             | Side.Buy ->
-                OrderBook(bidSide, MatchMarket marketOrder.Quantity askSide)
+                OrderBook(bidSide, MatchMarket marketOrder.Quantity askSide, emptySide)
             | Side.Sell ->
-                OrderBook(MatchMarket marketOrder.Quantity bidSide, askSide)
+                OrderBook(MatchMarket marketOrder.Quantity bidSide, askSide, emptySide)
 
     member x.Item
         with get (side: Side) =
@@ -150,27 +167,3 @@ type OrderBook(bidSide: IOrderBookSide, askSide: IOrderBookSide) =
             | Side.Buy -> bidSide
             | Side.Sell -> askSide
 
-    static member internal InsertOrderRedis (order: OrderRequest) (market: Market) (tipOrderId: Guid): unit =
-        // TODO: dispose
-        let redis = ConnectionMultiplexer.Connect "localhost"
-        let db = redis.GetDatabase()
-
-        let nonTipQuery = { Market = market; Tip = false; Side = order.Side }
-        let nonTipQueryStr = JsonConvert.SerializeObject nonTipQuery
-        let value = db.StringGet (RedisKey.op_Implicit nonTipQueryStr)
-        let newTail =
-            if not value.HasValue then
-                order.Id.ToString()::List.empty
-            else
-                let currentTail = JsonConvert.DeserializeObject<List<string>>(value.ToString())
-                List.append currentTail (order.Id.ToString()::[])
-
-        OrderRedisManager.SetTail newTail nonTipQueryStr
-
-        match order with
-        | Limit limitOrder ->
-            match limitOrder.RequestType with
-            | LimitOrderRequestType.Normal ->
-                OrderRedisManager.InsertOrder limitOrder.Order
-            | _ -> failwith "makerOnly not supported yet for redis"
-        | _ -> failwith "market not supported yet for redis"

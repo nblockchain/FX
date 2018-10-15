@@ -148,17 +148,17 @@ namespace FsharpExchange.Tests
                 Assert.That(String.IsNullOrEmpty(values), Is.False,
                             "should have nontip tail(not null) in this market");
                 var orders = JsonConvert.DeserializeObject<List<string>>(values);
-                Assert.That(orders.Count, Is.EqualTo(2),
+                Assert.That(orders.Count, Is.EqualTo(3),
                     "should have nontip tail of 2 elements in this market now");
 
-                Assert.That(orders[0],
+                Assert.That(orders[1],
                             Is.EqualTo(secondLimitOrder.OrderInfo.Id.ToString()),
                             "first order in tail is wrong");
-                Assert.That(orders[1],
+                Assert.That(orders[2],
                             Is.EqualTo(thirdLimitOrder.OrderInfo.Id.ToString()),
                             "second order in tail is wrong");
 
-                var order2 = db.StringGet(orders[0]);
+                var order2 = db.StringGet(orders[1]);
                 Assert.That(order2.HasValue, Is.EqualTo(true),
                             "should have the second order content");
                 Assert.That(order2.IsNull, Is.EqualTo(false),
@@ -169,7 +169,7 @@ namespace FsharpExchange.Tests
                             Is.EqualTo(secondLimitOrderSerialized),
                             "received second order should have same content");
 
-                var order3 = db.StringGet(orders[1]);
+                var order3 = db.StringGet(orders[2]);
                 Assert.That(order3.HasValue, Is.EqualTo(true),
                             "should have the third order content");
                 Assert.That(order3.IsNull, Is.EqualTo(false),
@@ -183,7 +183,6 @@ namespace FsharpExchange.Tests
         }
 
         [Test]
-        [Ignore("not working yet")]
         public void TipIsReplaced()
         {
             var quantity = 1;
