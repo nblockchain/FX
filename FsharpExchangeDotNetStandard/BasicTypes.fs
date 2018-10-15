@@ -59,8 +59,17 @@ type OrderRequest =
             | Limit item ->
                 item.Order.OrderInfo.Id
 
+type HeadTail<'TElement,'TContainer> =
+    {
+        Head: 'TElement;
+        Tail: unit -> 'TContainer;
+    }
+and ListAnalysis<'TElement,'TContainer> =
+    | EmptyList
+    | NonEmpty of HeadTail<'TElement,'TContainer>
+
 type IOrderBookSide =
-   abstract member IfEmptyElse: (unit->'T) -> (LimitOrder -> IOrderBookSide -> 'T) -> 'T
+   abstract member Analyze: unit -> ListAnalysis<LimitOrder,IOrderBookSide>
    abstract member Prepend: LimitOrder -> IOrderBookSide
    abstract member Tip: Option<LimitOrder>
    abstract member Tail: Option<IOrderBookSide>
@@ -68,13 +77,17 @@ type IOrderBookSide =
    abstract member SyncAsRoot: unit -> unit
 
 type MemoryOrderBookSide(memoryList: List<LimitOrder>) =
+    let rec AnalyzeList (lst: List<LimitOrder>): ListAnalysis<LimitOrder,IOrderBookSide> =
+        match lst with
+        | [] -> ListAnalysis.EmptyList
+        | head::tail ->
+            NonEmpty {
+                Head = head
+                Tail = (fun _ -> MemoryOrderBookSide(tail):>IOrderBookSide)
+            }
     interface IOrderBookSide with
-        member this.IfEmptyElse (ifEmptyFunc) (elseFunc) =
-            match memoryList with
-            | [] -> ifEmptyFunc ()
-            | head::tail ->
-                let tailSide = MemoryOrderBookSide(tail):>IOrderBookSide
-                elseFunc head tailSide
+        member this.Analyze() =
+            AnalyzeList memoryList
         member this.Tip =
             List.tryHead memoryList
         member this.Tail =

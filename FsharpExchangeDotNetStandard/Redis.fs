@@ -63,7 +63,6 @@ type RedisOrderBookSide(market: Market, side: Side, tailTip: HeadPointer) =
     let redis = ConnectionMultiplexer.Connect "localhost"
     let db = redis.GetDatabase()
 
-
     let rec AppendElementXToListYAfterElementZ (x: string) (y: List<string>) (z: string) =
         match y with
         | [] ->
@@ -108,10 +107,10 @@ type RedisOrderBookSide(market: Market, side: Side, tailTip: HeadPointer) =
             None
 
     interface IOrderBookSide with
-        member this.IfEmptyElse (ifEmptyFunc) (elseFunc) =
+        member this.Analyze () =
             match this.TipGuid with
             | None ->
-                ifEmptyFunc ()
+                ListAnalysis.EmptyList
             | Some tipGuidStr ->
                 let orderSerialized = db.StringGet (RedisKey.op_Implicit tipGuidStr)
                 if not orderSerialized.HasValue then
@@ -120,8 +119,10 @@ type RedisOrderBookSide(market: Market, side: Side, tailTip: HeadPointer) =
 
                 let tail = db.StringGet (RedisKey.op_Implicit nonTipQueryStr)
                 if not tail.HasValue then
-                    let tail = RedisOrderBookSide(market, side, Empty):> IOrderBookSide
-                    elseFunc limitOrder tail
+                    NonEmpty {
+                        Head = limitOrder;
+                        Tail = (fun _ -> RedisOrderBookSide(market, side, Empty):> IOrderBookSide)
+                    }
                 else
                     let tailGuids = JsonConvert.DeserializeObject<List<string>> (tail.ToString())
                     let maybeNextGuid = FindNextElementAfterXInListY tipGuidStr tailGuids
@@ -129,18 +130,26 @@ type RedisOrderBookSide(market: Market, side: Side, tailTip: HeadPointer) =
                     | Some nextGuids ->
                         match nextGuids with
                         | [] ->
-                            let tail = RedisOrderBookSide(market, side, Empty):> IOrderBookSide
-                            elseFunc limitOrder tail
+                            NonEmpty {
+                                Head = limitOrder;
+                                Tail = (fun _ -> RedisOrderBookSide(market, side, Empty):> IOrderBookSide)
+                            }
                         | nextGuid::_ ->
                             let nextOrderSerialized = db.StringGet (RedisKey.op_Implicit nextGuid)
                             if not nextOrderSerialized.HasValue then
                                 failwithf "Something went wrong, next guid was %s but was not found" nextGuid
                             let nextOrder = JsonConvert.DeserializeObject<LimitOrder> (nextOrderSerialized.ToString())
-                            let tail = RedisOrderBookSide(market, side, Pointer nextOrder.OrderInfo.Id):> IOrderBookSide
-                            elseFunc limitOrder tail
+                            NonEmpty {
+                                Head = limitOrder;
+                                Tail = (fun _ -> RedisOrderBookSide(market, side, Pointer nextOrder.OrderInfo.Id)
+                                                     :> IOrderBookSide)
+                            }
                     | None ->
-                        let tail = RedisOrderBookSide(market, side, Pointer (tailGuids.[0] |> Guid)):> IOrderBookSide
-                        elseFunc limitOrder tail
+                        NonEmpty {
+                            Head = limitOrder;
+                            Tail = (fun _ -> RedisOrderBookSide(market, side, Pointer (tailGuids.[0] |> Guid))
+                                                 :> IOrderBookSide)
+                        }
 
         member this.Tip =
             match this.TipGuid with

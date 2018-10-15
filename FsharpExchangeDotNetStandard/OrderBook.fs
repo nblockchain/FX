@@ -19,42 +19,46 @@ type MatchLeftOver =
 type OrderBook(bidSide: IOrderBookSide, askSide: IOrderBookSide, emptySide: Side -> IOrderBookSide) =
 
     let rec AppendOrder (order: LimitOrder) (orderBookSide: IOrderBookSide): IOrderBookSide =
-        orderBookSide.IfEmptyElse
-            (fun _ -> (emptySide order.OrderInfo.Side).Prepend order)
-            (fun head tail ->
-                if (head.OrderInfo.Side <> order.OrderInfo.Side) then
-                    failwith "Assertion failed, should not mix different sides in same OrderBookSide structure"
+        match orderBookSide.Analyze() with
+        | EmptyList ->
+            (emptySide order.OrderInfo.Side).Prepend order
+        | NonEmpty headTail ->
+            let head = headTail.Head
+            if (head.OrderInfo.Side <> order.OrderInfo.Side) then
+                failwith "Assertion failed, should not mix different sides in same OrderBookSide structure"
 
-                // FIXME: when order is same price, we should let the oldest order be in the tip...? test this
-                let canAdd =
-                    match order.OrderInfo.Side with
-                    | Side.Buy -> order.Price > head.Price
-                    | Side.Sell -> order.Price < head.Price
-                if (canAdd) then
-                    orderBookSide.Prepend order
-                else
-                    let newTail = AppendOrder order tail
-                    newTail.Prepend head
-            )
+            // FIXME: when order is same price, we should let the oldest order be in the tip...? test this
+            let canAdd =
+                match order.OrderInfo.Side with
+                | Side.Buy -> order.Price > head.Price
+                | Side.Sell -> order.Price < head.Price
+            if canAdd then
+                orderBookSide.Prepend order
+            else
+                let tail = headTail.Tail()
+                let newTail = AppendOrder order tail
+                newTail.Prepend head
 
     let rec MatchMarket (quantityLeftToMatch: decimal) (orderBookSide: IOrderBookSide): IOrderBookSide =
-        orderBookSide.IfEmptyElse
-            (fun _ -> raise LiquidityProblem)
-            (fun firstLimitOrder tail ->
-                if (quantityLeftToMatch > firstLimitOrder.OrderInfo.Quantity) then
-                    MatchMarket (quantityLeftToMatch - firstLimitOrder.OrderInfo.Quantity) tail
-                elif (quantityLeftToMatch = firstLimitOrder.OrderInfo.Quantity) then
-                    tail
-                else //if (quantityLeftToMatch < firstLimitOrder.Quantity)
-                    let side = firstLimitOrder.OrderInfo.Side
-                    let newPartialLimitOrder = { Price = firstLimitOrder.Price;
-                                                 OrderInfo =
-                                                 { Id = firstLimitOrder.OrderInfo.Id;
-                                                   Side = side;
-                                                   Quantity = firstLimitOrder.OrderInfo.Quantity - quantityLeftToMatch }
-                                               }
-                    AppendOrder newPartialLimitOrder tail
-            )
+        match orderBookSide.Analyze() with
+        | EmptyList ->
+            raise LiquidityProblem
+        | NonEmpty headTail ->
+            let firstLimitOrder = headTail.Head
+            let tail = headTail.Tail()
+            if (quantityLeftToMatch > firstLimitOrder.OrderInfo.Quantity) then
+                MatchMarket (quantityLeftToMatch - firstLimitOrder.OrderInfo.Quantity) tail
+            elif (quantityLeftToMatch = firstLimitOrder.OrderInfo.Quantity) then
+                tail
+            else //if (quantityLeftToMatch < firstLimitOrder.Quantity)
+                let side = firstLimitOrder.OrderInfo.Side
+                let newPartialLimitOrder = { Price = firstLimitOrder.Price;
+                                             OrderInfo =
+                                             { Id = firstLimitOrder.OrderInfo.Id;
+                                               Side = side;
+                                               Quantity = firstLimitOrder.OrderInfo.Quantity - quantityLeftToMatch }
+                                           }
+                AppendOrder newPartialLimitOrder tail
 
     let rec MatchLimitOrders (orderInBook: LimitOrder)
                              (incomingOrderRequest: LimitOrderRequest)
@@ -69,7 +73,9 @@ type OrderBook(bidSide: IOrderBookSide, askSide: IOrderBookSide, emptySide: Side
             | Side.Sell -> orderInBook.Price >= incomingOrder.Price
             | Side.Buy -> orderInBook.Price <= incomingOrder.Price
 
-        if (matches) then
+        if not matches then
+            NoMatch
+        else
             if (incomingOrderRequest.RequestType = LimitOrderRequestType.MakerOnly) then
                 raise MatchExpectationsUnmet
 
@@ -95,56 +101,49 @@ type OrderBook(bidSide: IOrderBookSide, askSide: IOrderBookSide, emptySide: Side
                 let partialRemainingIncomingOrderRequest =
                     { Order = partialRemainingIncomingLimitOrder;
                       RequestType = incomingOrderRequest.RequestType }
-                restOfBookSide.IfEmptyElse
-                    (fun _ -> UnmatchedLimitOrderLeftOverAfterPartialMatch(partialRemainingIncomingLimitOrder))
-                    (fun secondLimitOrder secondTail ->
-                        MatchLimitOrders secondLimitOrder partialRemainingIncomingOrderRequest secondTail)
-        else
-            NoMatch
 
-    let EmptyOrderBookSide (side: Side) =
-        emptySide side
-
-    let emptyAskSide() =
-        emptySide Side.Sell
-
-    let emptyBidSide() =
-        emptySide Side.Buy
+                match restOfBookSide.Analyze() with
+                | EmptyList ->
+                    UnmatchedLimitOrderLeftOverAfterPartialMatch(partialRemainingIncomingLimitOrder)
+                | NonEmpty headTail ->
+                    let secondLimitOrder = headTail.Head
+                    let secondTail = headTail.Tail()
+                    MatchLimitOrders secondLimitOrder partialRemainingIncomingOrderRequest secondTail
 
     let rec MatchLimit (incomingOrderRequest: LimitOrderRequest) (orderBookSide: OrderBook)
                      : OrderBook =
         let incomingOrder = incomingOrderRequest.Order
         match incomingOrder.OrderInfo.Side with
         | Side.Buy ->
+            match askSide.Analyze() with
+            | EmptyList ->
+                OrderBook(AppendOrder incomingOrder bidSide, askSide, emptySide)
+            | NonEmpty headTail ->
+                let firstSellLimitOrder = headTail.Head
+                let restOfAskSide = headTail.Tail()
+                let maybeMatchingResultSide = MatchLimitOrders firstSellLimitOrder incomingOrderRequest restOfAskSide
+                match maybeMatchingResultSide with
+                | NoMatch -> OrderBook(AppendOrder incomingOrder bidSide, askSide, emptySide)
+                | SideLeftAfterFullMatch(newAskSide) -> OrderBook(bidSide, newAskSide, emptySide)
+                | UnmatchedLimitOrderLeftOverAfterPartialMatch(leftOverOrder) ->
+                    OrderBook(AppendOrder leftOverOrder bidSide,
+                              emptySide Side.Sell,
+                              emptySide)
 
-            askSide.IfEmptyElse
-                (fun _ -> OrderBook(AppendOrder incomingOrder bidSide, askSide,
-                                    emptySide))
-                (fun firstSellLimitOrder restOfAskSide ->
-                    let maybeMatchingResultSide = MatchLimitOrders firstSellLimitOrder incomingOrderRequest restOfAskSide
-                    match maybeMatchingResultSide with
-                    | NoMatch -> OrderBook(AppendOrder incomingOrder bidSide, askSide,
-                                           emptySide)
-                    | SideLeftAfterFullMatch(newAskSide) -> OrderBook(bidSide, newAskSide, emptySide)
-                    | UnmatchedLimitOrderLeftOverAfterPartialMatch(leftOverOrder) ->
-                        OrderBook(AppendOrder leftOverOrder bidSide,
-                                  EmptyOrderBookSide Side.Sell,
-                                  emptySide)
-                )
         | Side.Sell ->
-            bidSide.IfEmptyElse
-                (fun _ -> OrderBook(bidSide, AppendOrder incomingOrder askSide,
-                                    emptySide))
-                (fun firstBuyLimitOrder restOfBidSide ->
-                    let maybeMatchingResultSide = MatchLimitOrders firstBuyLimitOrder incomingOrderRequest restOfBidSide
-                    match maybeMatchingResultSide with
-                    | NoMatch -> OrderBook(bidSide, AppendOrder incomingOrder askSide, emptySide)
-                    | SideLeftAfterFullMatch(newBidSide) -> OrderBook(newBidSide, askSide, emptySide)
-                    | UnmatchedLimitOrderLeftOverAfterPartialMatch(leftOverOrder) ->
-                        OrderBook(EmptyOrderBookSide Side.Buy,
-                                  AppendOrder leftOverOrder askSide,
-                                  emptySide)
-                )
+            match bidSide.Analyze() with
+            | EmptyList -> OrderBook(bidSide, AppendOrder incomingOrder askSide, emptySide)
+            | NonEmpty headTail ->
+                let firstBuyLimitOrder = headTail.Head
+                let restOfBidSide = headTail.Tail()
+                let maybeMatchingResultSide = MatchLimitOrders firstBuyLimitOrder incomingOrderRequest restOfBidSide
+                match maybeMatchingResultSide with
+                | NoMatch -> OrderBook(bidSide, AppendOrder incomingOrder askSide, emptySide)
+                | SideLeftAfterFullMatch(newBidSide) -> OrderBook(newBidSide, askSide, emptySide)
+                | UnmatchedLimitOrderLeftOverAfterPartialMatch(leftOverOrder) ->
+                    OrderBook(emptySide Side.Buy,
+                              AppendOrder leftOverOrder askSide,
+                              emptySide)
 
     member __.SyncAsRoot() =
         bidSide.SyncAsRoot()
