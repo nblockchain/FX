@@ -28,6 +28,14 @@ type Query =
     | MarketSide of MarketQuery
     | Order of OrderQuery
 
+type OrderBookSide(market: Market, side: Side) =
+    let tipQuery = { Market = market; Tip = true; Side = side }
+    let tipQueryStr = JsonConvert.SerializeObject tipQuery
+    let nonTipQuery = { Market = market; Tip = false; Side = side }
+    let nonTipQueryStr = JsonConvert.SerializeObject nonTipQuery
+    member __.TipQuery = tipQueryStr
+    member __.NonTipQuery = nonTipQueryStr
+
 type HeadPointer =
     | Root
     | Pointer of Guid
@@ -45,21 +53,21 @@ module OrderRedisManager =
         if not success then
             failwith "Redis set(order) failed, something wrong must be going on"
 
-    let GetTipOrderGuid (tipQueryStr: string): Option<string> =
-        let tipGuidResult = db.StringGet (RedisKey.op_Implicit tipQueryStr)
+    let GetTipOrderGuid (orderBookSide: OrderBookSide): Option<string> =
+        let tipGuidResult = db.StringGet (RedisKey.op_Implicit orderBookSide.TipQuery)
         if not tipGuidResult.HasValue then
             None
         else
             tipGuidResult.ToString() |> Some
 
-    let SetTipOrderGuid (tipQueryStr: string) (guidStr: string): unit =
-        let success = db.StringSet(RedisKey.op_Implicit tipQueryStr,
+    let SetTipOrderGuid (orderBookSide: OrderBookSide) (guidStr: string): unit =
+        let success = db.StringSet(RedisKey.op_Implicit orderBookSide.TipQuery,
                                    RedisValue.op_Implicit guidStr)
         if not success then
             failwith "Redis set failed, something wrong must be going on"
 
-    let GetTipOrder (tipQueryStr: string): Option<LimitOrder> =
-        let maybeTipOrderGuid = GetTipOrderGuid tipQueryStr
+    let GetTipOrder (orderBookSide: OrderBookSide): Option<LimitOrder> =
+        let maybeTipOrderGuid = GetTipOrderGuid orderBookSide
         match maybeTipOrderGuid with
         | None -> None
         | Some tipOrderGuid ->
@@ -80,26 +88,21 @@ module OrderRedisManager =
     let GetOrderByGuid (guid: Guid): Option<LimitOrder> =
         GetOrderByGuidString (guid.ToString())
 
-    let GetTail (nonTipQueryStr: string): List<string> =
-        let tail = db.StringGet (RedisKey.op_Implicit nonTipQueryStr)
+    let GetTail (orderBookSide: OrderBookSide): List<string> =
+        let tail = db.StringGet (RedisKey.op_Implicit orderBookSide.NonTipQuery)
         if not tail.HasValue then
             List.empty
         else
             JsonConvert.DeserializeObject<List<string>> (tail.ToString())
 
-    let SetTail (limitOrderGuids: List<string>) (nonTipQueryStr: string): unit =
+    let SetTail (limitOrderGuids: List<string>) (orderBookSide: OrderBookSide): unit =
         let serializedGuids = JsonConvert.SerializeObject limitOrderGuids
-        let success = db.StringSet(RedisKey.op_Implicit nonTipQueryStr,
+        let success = db.StringSet(RedisKey.op_Implicit orderBookSide.NonTipQuery,
                                    RedisValue.op_Implicit serializedGuids)
         if not success then
             failwith "Redis set(nonTip) failed, something wrong must be going on"
 
-type RedisOrderBookSide(market: Market, side: Side, tip: HeadPointer) =
-    let tipQuery = { Market = market; Tip = true; Side = side }
-    let tipQueryStr = JsonConvert.SerializeObject tipQuery
-
-    let nonTipQuery = { Market = market; Tip = false; Side = side }
-    let nonTipQueryStr = JsonConvert.SerializeObject nonTipQuery
+type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) =
 
     let rec AppendElementXToListYAfterElementZ (x: string) (y: List<string>) (z: string) =
         match y with
@@ -131,7 +134,7 @@ type RedisOrderBookSide(market: Market, side: Side, tip: HeadPointer) =
             else
                 FindNextElementAfterXInListY x tail
 
-    interface IOrderBookSide with
+    interface IOrderBookSideFragment with
 
         member this.Analyze () =
             match tip with
@@ -139,23 +142,24 @@ type RedisOrderBookSide(market: Market, side: Side, tip: HeadPointer) =
                 ListAnalysis.EmptyList
 
             | Root ->
-                let maybeTipOrder = OrderRedisManager.GetTipOrder tipQueryStr
+                let maybeTipOrder = OrderRedisManager.GetTipOrder orderBookSide
                 match maybeTipOrder with
                 | None ->
                     ListAnalysis.EmptyList
                 | Some tipOrder ->
-                    let redisTail = OrderRedisManager.GetTail nonTipQueryStr
+                    let redisTail = OrderRedisManager.GetTail orderBookSide
                     match redisTail with
                     | [] ->
                         NonEmpty {
                             Head = tipOrder;
-                            Tail = (fun _ -> RedisOrderBookSide(market, side, Empty):> IOrderBookSide)
+                            Tail = (fun _ -> RedisOrderBookSideFragment(orderBookSide, Empty) :> IOrderBookSideFragment)
                         }
                     | head::_ ->
                         let tailHeadGuid = head |> Guid
                         NonEmpty {
                             Head = tipOrder;
-                            Tail = (fun _ -> RedisOrderBookSide(market, side, Pointer tailHeadGuid):> IOrderBookSide)
+                            Tail = (fun _ -> RedisOrderBookSideFragment(orderBookSide, Pointer tailHeadGuid)
+                                                 :> IOrderBookSideFragment)
                         }
 
             | Pointer tipGuid ->
@@ -165,11 +169,11 @@ type RedisOrderBookSide(market: Market, side: Side, tip: HeadPointer) =
                     failwithf "Something went wrong, order tip was %s but was not found" tipGuidStr
                 | Some headOrder ->
 
-                    match OrderRedisManager.GetTail nonTipQueryStr with
+                    match OrderRedisManager.GetTail orderBookSide with
                     | [] ->
                         NonEmpty {
                             Head = headOrder;
-                            Tail = (fun _ -> RedisOrderBookSide(market, side, Empty):> IOrderBookSide)
+                            Tail = (fun _ -> RedisOrderBookSideFragment(orderBookSide, Empty) :> IOrderBookSideFragment)
                         }
                     | tailGuids ->
                         let maybeNextGuid = FindNextElementAfterXInListY tipGuidStr tailGuids
@@ -179,7 +183,8 @@ type RedisOrderBookSide(market: Market, side: Side, tip: HeadPointer) =
                             | [] ->
                                 NonEmpty {
                                     Head = headOrder;
-                                    Tail = (fun _ -> RedisOrderBookSide(market, side, Empty):> IOrderBookSide)
+                                    Tail = (fun _ -> RedisOrderBookSideFragment(orderBookSide, Empty)
+                                                         :> IOrderBookSideFragment)
                                 }
                             | nextGuid::_ ->
                                 match OrderRedisManager.GetOrderByGuidString nextGuid with
@@ -188,21 +193,22 @@ type RedisOrderBookSide(market: Market, side: Side, tip: HeadPointer) =
                                 | Some nextOrder ->
                                     NonEmpty {
                                         Head = headOrder;
-                                        Tail = (fun _ -> RedisOrderBookSide(market, side, Pointer nextOrder.OrderInfo.Id)
-                                                             :> IOrderBookSide)
+                                        Tail = (fun _ -> RedisOrderBookSideFragment(orderBookSide,
+                                                                                    Pointer nextOrder.OrderInfo.Id)
+                                                             :> IOrderBookSideFragment)
                                     }
                         | None ->
                             NonEmpty {
                                 Head = headOrder;
-                                Tail = (fun _ -> RedisOrderBookSide(market, side, Pointer (tailGuids.[0] |> Guid))
-                                                     :> IOrderBookSide)
+                                Tail = (fun _ -> RedisOrderBookSideFragment(orderBookSide, Pointer (tailGuids.[0] |> Guid))
+                                                     :> IOrderBookSideFragment)
                             }
 
         member this.Tip =
             match tip with
             | Empty -> None
             | Root ->
-                OrderRedisManager.GetTipOrder tipQueryStr
+                OrderRedisManager.GetTipOrder orderBookSide
             | Pointer orderGuid ->
                 let orderGuidStr = orderGuid.ToString()
                 match OrderRedisManager.GetOrderByGuidString orderGuidStr with
@@ -212,36 +218,36 @@ type RedisOrderBookSide(market: Market, side: Side, tip: HeadPointer) =
                     someOrder
 
         member this.Tail =
-            match (this:>IOrderBookSide).Tip with
+            match (this :> IOrderBookSideFragment).Tip with
             | None -> None
             | Some tip ->
-                RedisOrderBookSide(market, side, Pointer tip.OrderInfo.Id):> IOrderBookSide |> Some
+                RedisOrderBookSideFragment(orderBookSide, Pointer tip.OrderInfo.Id):> IOrderBookSideFragment |> Some
 
         member this.Prepend (limitOrder: LimitOrder) =
             OrderRedisManager.InsertOrder limitOrder
             match tip with
             | Root ->
-                let maybePreviousTipLimitOrderGuid = OrderRedisManager.GetTipOrderGuid tipQueryStr
+                let maybePreviousTipLimitOrderGuid = OrderRedisManager.GetTipOrderGuid orderBookSide
                 let guidStr = limitOrder.OrderInfo.Id.ToString()
-                OrderRedisManager.SetTipOrderGuid tipQueryStr guidStr
+                OrderRedisManager.SetTipOrderGuid orderBookSide guidStr
 
                 match maybePreviousTipLimitOrderGuid with
                 | Some previousTipLimitOrderGuid ->
-                    let previousTailGuids = OrderRedisManager.GetTail nonTipQueryStr
+                    let previousTailGuids = OrderRedisManager.GetTail orderBookSide
 
                     let tailGuids = previousTipLimitOrderGuid::previousTailGuids
-                    OrderRedisManager.SetTail tailGuids nonTipQueryStr
+                    OrderRedisManager.SetTail tailGuids orderBookSide
                 | _ ->
                     // no need to do anything else
                     ()
-                this:> IOrderBookSide
+                this:> IOrderBookSideFragment
 
             | Pointer tailTipOrderGuid ->
                 let tailTipOrderGuidStr = tailTipOrderGuid.ToString()
-                let tail = OrderRedisManager.GetTail nonTipQueryStr
+                let tail = OrderRedisManager.GetTail orderBookSide
                 match tail with
                 | [] ->
-                    OrderRedisManager.SetTail (tailTipOrderGuidStr::List.Empty) nonTipQueryStr
+                    OrderRedisManager.SetTail (tailTipOrderGuidStr::List.Empty) orderBookSide
                 | previousTailGuids ->
                     let newTail =
                         // TODO: optimize?
@@ -253,22 +259,22 @@ type RedisOrderBookSide(market: Market, side: Side, tip: HeadPointer) =
                             AppendElementXToListYAfterElementZ tailTipOrderGuidStr
                                                                previousTailGuids
                                                                (limitOrder.OrderInfo.Id.ToString())
-                    OrderRedisManager.SetTail newTail nonTipQueryStr
+                    OrderRedisManager.SetTail newTail orderBookSide
 
-                RedisOrderBookSide(market, side, Pointer limitOrder.OrderInfo.Id) :> IOrderBookSide
+                RedisOrderBookSideFragment(orderBookSide, Pointer limitOrder.OrderInfo.Id) :> IOrderBookSideFragment
             | Empty ->
-                RedisOrderBookSide(market, side, Pointer limitOrder.OrderInfo.Id) :> IOrderBookSide
+                RedisOrderBookSideFragment(orderBookSide, Pointer limitOrder.OrderInfo.Id) :> IOrderBookSideFragment
 
         member this.Count () =
             match tip with
             | Empty -> 0
             | _ ->
-                1 + (OrderRedisManager.GetTail nonTipQueryStr).Length
+                1 + (OrderRedisManager.GetTail orderBookSide).Length
 
         member this.SyncAsRoot () =
             match tip with
             | Pointer tip ->
-                OrderRedisManager.SetTipOrderGuid tipQueryStr (tip.ToString())
+                OrderRedisManager.SetTipOrderGuid orderBookSide (tip.ToString())
             | Root ->
                 ()
             | Empty ->

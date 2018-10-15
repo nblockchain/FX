@@ -68,24 +68,24 @@ and ListAnalysis<'TElement,'TContainer> =
     | EmptyList
     | NonEmpty of HeadTail<'TElement,'TContainer>
 
-type IOrderBookSide =
-   abstract member Analyze: unit -> ListAnalysis<LimitOrder,IOrderBookSide>
-   abstract member Prepend: LimitOrder -> IOrderBookSide
+type IOrderBookSideFragment =
+   abstract member Analyze: unit -> ListAnalysis<LimitOrder,IOrderBookSideFragment>
+   abstract member Prepend: LimitOrder -> IOrderBookSideFragment
    abstract member Tip: Option<LimitOrder>
-   abstract member Tail: Option<IOrderBookSide>
+   abstract member Tail: Option<IOrderBookSideFragment>
    abstract member Count: unit -> int
    abstract member SyncAsRoot: unit -> unit
 
-type MemoryOrderBookSide(memoryList: List<LimitOrder>) =
-    let rec AnalyzeList (lst: List<LimitOrder>): ListAnalysis<LimitOrder,IOrderBookSide> =
+type MemoryOrderBookSideFragment(memoryList: List<LimitOrder>) =
+    let rec AnalyzeList (lst: List<LimitOrder>): ListAnalysis<LimitOrder,IOrderBookSideFragment> =
         match lst with
         | [] -> ListAnalysis.EmptyList
         | head::tail ->
             NonEmpty {
                 Head = head
-                Tail = (fun _ -> MemoryOrderBookSide(tail):>IOrderBookSide)
+                Tail = (fun _ -> MemoryOrderBookSideFragment(tail):>IOrderBookSideFragment)
             }
-    interface IOrderBookSide with
+    interface IOrderBookSideFragment with
         member this.Analyze() =
             AnalyzeList memoryList
         member this.Tip =
@@ -93,9 +93,9 @@ type MemoryOrderBookSide(memoryList: List<LimitOrder>) =
         member this.Tail =
             match memoryList with
             | [] -> None
-            | _::tail -> MemoryOrderBookSide(tail):>IOrderBookSide |> Some
+            | _::tail -> MemoryOrderBookSideFragment(tail) :> IOrderBookSideFragment |> Some
         member this.Prepend (limitOrder: LimitOrder) =
-            MemoryOrderBookSide(limitOrder::memoryList):>IOrderBookSide
+            MemoryOrderBookSideFragment(limitOrder::memoryList) :> IOrderBookSideFragment
         member this.Count () =
             memoryList.Length
         member this.SyncAsRoot () =

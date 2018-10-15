@@ -8,9 +8,6 @@ open FsharpExchangeDotNetStandard.Redis
 
 open System
 
-open Newtonsoft.Json
-open StackExchange.Redis
-
 type public Exchange(persistenceType: Persistence) =
 
     let mutable markets: Map<Market, OrderBook> = Map.empty
@@ -23,13 +20,16 @@ type public Exchange(persistenceType: Persistence) =
         | None ->
             match persistenceType with
             | Memory ->
-                OrderBook(MemoryOrderBookSide([]):>IOrderBookSide,
-                          MemoryOrderBookSide([]):>IOrderBookSide,
-                          (fun _ -> MemoryOrderBookSide([]):>IOrderBookSide))
+                OrderBook(MemoryOrderBookSideFragment(List.empty) :> IOrderBookSideFragment,
+                          MemoryOrderBookSideFragment(List.empty) :> IOrderBookSideFragment,
+                          (fun _ -> MemoryOrderBookSideFragment(List.empty) :> IOrderBookSideFragment))
             | Redis ->
-                OrderBook(RedisOrderBookSide(market, Side.Buy, Root):>IOrderBookSide,
-                          RedisOrderBookSide(market, Side.Sell, Root):>IOrderBookSide,
-                          (fun side -> RedisOrderBookSide(market, side, Empty):>IOrderBookSide))
+                let bidSide = OrderBookSide(market, Side.Buy)
+                let askSide = OrderBookSide(market, Side.Sell)
+                OrderBook(RedisOrderBookSideFragment(bidSide, Root) :> IOrderBookSideFragment,
+                          RedisOrderBookSideFragment(askSide, Root) :> IOrderBookSideFragment,
+                          (fun side -> RedisOrderBookSideFragment(OrderBookSide(market, side), Empty)
+                                           :> IOrderBookSideFragment))
 
         | Some(orderBookFound) ->
             orderBookFound
@@ -60,5 +60,4 @@ type public Exchange(persistenceType: Persistence) =
 
     member x.SendLimitOrder (order: LimitOrderRequest, market: Market) =
         ReceiveOrder (OrderRequest.Limit(order)) market
-
 

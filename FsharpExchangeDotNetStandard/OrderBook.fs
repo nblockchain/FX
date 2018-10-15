@@ -4,21 +4,15 @@
 
 namespace FsharpExchangeDotNetStandard
 
-open FsharpExchangeDotNetStandard.Redis
-
-open System
-
-open StackExchange.Redis
-open Newtonsoft.Json
-
 type MatchLeftOver =
     | NoMatch
     | UnmatchedLimitOrderLeftOverAfterPartialMatch of LimitOrder
-    | SideLeftAfterFullMatch of IOrderBookSide
+    | SideLeftAfterFullMatch of IOrderBookSideFragment
 
-type OrderBook(bidSide: IOrderBookSide, askSide: IOrderBookSide, emptySide: Side -> IOrderBookSide) =
+type OrderBook(bidSide: IOrderBookSideFragment, askSide: IOrderBookSideFragment,
+               emptySide: Side -> IOrderBookSideFragment) =
 
-    let rec AppendOrder (order: LimitOrder) (orderBookSide: IOrderBookSide): IOrderBookSide =
+    let rec AppendOrder (order: LimitOrder) (orderBookSide: IOrderBookSideFragment): IOrderBookSideFragment =
         match orderBookSide.Analyze() with
         | EmptyList ->
             (emptySide order.OrderInfo.Side).Prepend order
@@ -39,7 +33,7 @@ type OrderBook(bidSide: IOrderBookSide, askSide: IOrderBookSide, emptySide: Side
                 let newTail = AppendOrder order tail
                 newTail.Prepend head
 
-    let rec MatchMarket (quantityLeftToMatch: decimal) (orderBookSide: IOrderBookSide): IOrderBookSide =
+    let rec MatchMarket (quantityLeftToMatch: decimal) (orderBookSide: IOrderBookSideFragment): IOrderBookSideFragment =
         match orderBookSide.Analyze() with
         | EmptyList ->
             raise LiquidityProblem
@@ -62,7 +56,7 @@ type OrderBook(bidSide: IOrderBookSide, askSide: IOrderBookSide, emptySide: Side
 
     let rec MatchLimitOrders (orderInBook: LimitOrder)
                              (incomingOrderRequest: LimitOrderRequest)
-                             (restOfBookSide: IOrderBookSide)
+                             (restOfBookSide: IOrderBookSideFragment)
                              : MatchLeftOver =
         let incomingOrder = incomingOrderRequest.Order
         if (orderInBook.OrderInfo.Side = incomingOrder.OrderInfo.Side) then
