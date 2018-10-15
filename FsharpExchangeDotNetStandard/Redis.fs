@@ -38,30 +38,68 @@ module OrderRedisManager =
     let redis = ConnectionMultiplexer.Connect "localhost"
     let db = redis.GetDatabase()
 
-    let InsertOrder (limitOrder: LimitOrder) =
+    let InsertOrder (limitOrder: LimitOrder): unit =
         let serializedOrder = JsonConvert.SerializeObject limitOrder
         let success = db.StringSet(RedisKey.op_Implicit (limitOrder.OrderInfo.Id.ToString()),
                                    RedisValue.op_Implicit (serializedOrder))
         if not success then
             failwith "Redis set(order) failed, something wrong must be going on"
 
-    let SetTail (limitOrderGuids: List<string>) (nonTipQueryStr: string) =
+    let GetTipOrderGuid (tipQueryStr: string): Option<string> =
+        let tipGuidResult = db.StringGet (RedisKey.op_Implicit tipQueryStr)
+        if not tipGuidResult.HasValue then
+            None
+        else
+            tipGuidResult.ToString() |> Some
+
+    let SetTipOrderGuid (tipQueryStr: string) (guidStr: string): unit =
+        let success = db.StringSet(RedisKey.op_Implicit tipQueryStr,
+                                   RedisValue.op_Implicit guidStr)
+        if not success then
+            failwith "Redis set failed, something wrong must be going on"
+
+    let GetTipOrder (tipQueryStr: string): Option<LimitOrder> =
+        let maybeTipOrderGuid = GetTipOrderGuid tipQueryStr
+        match maybeTipOrderGuid with
+        | None -> None
+        | Some tipOrderGuid ->
+            let orderSerialized = db.StringGet (RedisKey.op_Implicit tipOrderGuid)
+            if not orderSerialized.HasValue then
+                failwithf "Something went wrong, order tip was %s but was not found" tipOrderGuid
+            let tipOrder = JsonConvert.DeserializeObject<LimitOrder> (orderSerialized.ToString())
+            tipOrder |> Some
+
+    let GetOrderByGuidString (guid: string): Option<LimitOrder> =
+        let orderSerialized = db.StringGet (RedisKey.op_Implicit guid)
+        if not orderSerialized.HasValue then
+            None
+        else
+            let order = JsonConvert.DeserializeObject<LimitOrder> (orderSerialized.ToString())
+            order |> Some
+
+    let GetOrderByGuid (guid: Guid): Option<LimitOrder> =
+        GetOrderByGuidString (guid.ToString())
+
+    let GetTail (nonTipQueryStr: string): List<string> =
+        let tail = db.StringGet (RedisKey.op_Implicit nonTipQueryStr)
+        if not tail.HasValue then
+            List.empty
+        else
+            JsonConvert.DeserializeObject<List<string>> (tail.ToString())
+
+    let SetTail (limitOrderGuids: List<string>) (nonTipQueryStr: string): unit =
         let serializedGuids = JsonConvert.SerializeObject limitOrderGuids
         let success = db.StringSet(RedisKey.op_Implicit nonTipQueryStr,
                                    RedisValue.op_Implicit serializedGuids)
         if not success then
             failwith "Redis set(nonTip) failed, something wrong must be going on"
 
-type RedisOrderBookSide(market: Market, side: Side, tailTip: HeadPointer) =
+type RedisOrderBookSide(market: Market, side: Side, tip: HeadPointer) =
     let tipQuery = { Market = market; Tip = true; Side = side }
     let tipQueryStr = JsonConvert.SerializeObject tipQuery
 
     let nonTipQuery = { Market = market; Tip = false; Side = side }
     let nonTipQueryStr = JsonConvert.SerializeObject nonTipQuery
-
-    // TODO: dispose
-    let redis = ConnectionMultiplexer.Connect "localhost"
-    let db = redis.GetDatabase()
 
     let rec AppendElementXToListYAfterElementZ (x: string) (y: List<string>) (z: string) =
         match y with
@@ -93,72 +131,85 @@ type RedisOrderBookSide(market: Market, side: Side, tailTip: HeadPointer) =
             else
                 FindNextElementAfterXInListY x tail
 
-    member this.TipGuid: Option<string> =
-        match tailTip with
-        | Root ->
-            let tipGuid = db.StringGet (RedisKey.op_Implicit tipQueryStr)
-            if not tipGuid.HasValue then
-                None
-            else
-                tipGuid.ToString() |> Some
-        | Pointer guid ->
-            guid.ToString() |> Some
-        | Empty ->
-            None
-
     interface IOrderBookSide with
-        member this.Analyze () =
-            match this.TipGuid with
-            | None ->
-                ListAnalysis.EmptyList
-            | Some tipGuidStr ->
-                let orderSerialized = db.StringGet (RedisKey.op_Implicit tipGuidStr)
-                if not orderSerialized.HasValue then
-                    failwithf "Something went wrong, order tip was %s but was not found" tipGuidStr
-                let limitOrder = JsonConvert.DeserializeObject<LimitOrder> (orderSerialized.ToString())
 
-                let tail = db.StringGet (RedisKey.op_Implicit nonTipQueryStr)
-                if not tail.HasValue then
-                    NonEmpty {
-                        Head = limitOrder;
-                        Tail = (fun _ -> RedisOrderBookSide(market, side, Empty):> IOrderBookSide)
-                    }
-                else
-                    let tailGuids = JsonConvert.DeserializeObject<List<string>> (tail.ToString())
-                    let maybeNextGuid = FindNextElementAfterXInListY tipGuidStr tailGuids
-                    match maybeNextGuid with
-                    | Some nextGuids ->
-                        match nextGuids with
-                        | [] ->
-                            NonEmpty {
-                                Head = limitOrder;
-                                Tail = (fun _ -> RedisOrderBookSide(market, side, Empty):> IOrderBookSide)
-                            }
-                        | nextGuid::_ ->
-                            let nextOrderSerialized = db.StringGet (RedisKey.op_Implicit nextGuid)
-                            if not nextOrderSerialized.HasValue then
-                                failwithf "Something went wrong, next guid was %s but was not found" nextGuid
-                            let nextOrder = JsonConvert.DeserializeObject<LimitOrder> (nextOrderSerialized.ToString())
-                            NonEmpty {
-                                Head = limitOrder;
-                                Tail = (fun _ -> RedisOrderBookSide(market, side, Pointer nextOrder.OrderInfo.Id)
-                                                     :> IOrderBookSide)
-                            }
-                    | None ->
+        member this.Analyze () =
+            match tip with
+            | Empty ->
+                ListAnalysis.EmptyList
+
+            | Root ->
+                let maybeTipOrder = OrderRedisManager.GetTipOrder tipQueryStr
+                match maybeTipOrder with
+                | None ->
+                    ListAnalysis.EmptyList
+                | Some tipOrder ->
+                    let redisTail = OrderRedisManager.GetTail nonTipQueryStr
+                    match redisTail with
+                    | [] ->
                         NonEmpty {
-                            Head = limitOrder;
-                            Tail = (fun _ -> RedisOrderBookSide(market, side, Pointer (tailGuids.[0] |> Guid))
-                                                 :> IOrderBookSide)
+                            Head = tipOrder;
+                            Tail = (fun _ -> RedisOrderBookSide(market, side, Empty):> IOrderBookSide)
+                        }
+                    | head::_ ->
+                        let tailHeadGuid = head |> Guid
+                        NonEmpty {
+                            Head = tipOrder;
+                            Tail = (fun _ -> RedisOrderBookSide(market, side, Pointer tailHeadGuid):> IOrderBookSide)
                         }
 
-        member this.Tip =
-            match this.TipGuid with
-            | None -> None
-            | Some tipGuidStr ->
-                let orderSerialized = db.StringGet (RedisKey.op_Implicit tipGuidStr)
-                if not orderSerialized.HasValue then
+            | Pointer tipGuid ->
+                let tipGuidStr = tipGuid.ToString()
+                match OrderRedisManager.GetOrderByGuidString tipGuidStr with
+                | None ->
                     failwithf "Something went wrong, order tip was %s but was not found" tipGuidStr
-                JsonConvert.DeserializeObject<LimitOrder> (orderSerialized.ToString()) |> Some
+                | Some headOrder ->
+
+                    match OrderRedisManager.GetTail nonTipQueryStr with
+                    | [] ->
+                        NonEmpty {
+                            Head = headOrder;
+                            Tail = (fun _ -> RedisOrderBookSide(market, side, Empty):> IOrderBookSide)
+                        }
+                    | tailGuids ->
+                        let maybeNextGuid = FindNextElementAfterXInListY tipGuidStr tailGuids
+                        match maybeNextGuid with
+                        | Some nextGuids ->
+                            match nextGuids with
+                            | [] ->
+                                NonEmpty {
+                                    Head = headOrder;
+                                    Tail = (fun _ -> RedisOrderBookSide(market, side, Empty):> IOrderBookSide)
+                                }
+                            | nextGuid::_ ->
+                                match OrderRedisManager.GetOrderByGuidString nextGuid with
+                                | None ->
+                                    failwithf "Something went wrong, next guid was %s but was not found" nextGuid
+                                | Some nextOrder ->
+                                    NonEmpty {
+                                        Head = headOrder;
+                                        Tail = (fun _ -> RedisOrderBookSide(market, side, Pointer nextOrder.OrderInfo.Id)
+                                                             :> IOrderBookSide)
+                                    }
+                        | None ->
+                            NonEmpty {
+                                Head = headOrder;
+                                Tail = (fun _ -> RedisOrderBookSide(market, side, Pointer (tailGuids.[0] |> Guid))
+                                                     :> IOrderBookSide)
+                            }
+
+        member this.Tip =
+            match tip with
+            | Empty -> None
+            | Root ->
+                OrderRedisManager.GetTipOrder tipQueryStr
+            | Pointer orderGuid ->
+                let orderGuidStr = orderGuid.ToString()
+                match OrderRedisManager.GetOrderByGuidString orderGuidStr with
+                | None ->
+                    failwithf "Something went wrong, order tip was %s but was not found" orderGuidStr
+                | someOrder ->
+                    someOrder
 
         member this.Tail =
             match (this:>IOrderBookSide).Tip with
@@ -168,23 +219,15 @@ type RedisOrderBookSide(market: Market, side: Side, tailTip: HeadPointer) =
 
         member this.Prepend (limitOrder: LimitOrder) =
             OrderRedisManager.InsertOrder limitOrder
-            match tailTip with
+            match tip with
             | Root ->
-                let maybePreviousTipLimitOrderGuid = this.TipGuid
+                let maybePreviousTipLimitOrderGuid = OrderRedisManager.GetTipOrderGuid tipQueryStr
                 let guidStr = limitOrder.OrderInfo.Id.ToString()
-                let success = db.StringSet(RedisKey.op_Implicit tipQueryStr,
-                                           RedisValue.op_Implicit guidStr)
-                if not success then
-                    failwith "Redis set failed, something wrong must be going on"
+                OrderRedisManager.SetTipOrderGuid tipQueryStr guidStr
 
                 match maybePreviousTipLimitOrderGuid with
                 | Some previousTipLimitOrderGuid ->
-                    let tail = db.StringGet (RedisKey.op_Implicit nonTipQueryStr)
-                    let previousTailGuids =
-                        if not tail.HasValue then
-                            List.empty
-                        else
-                            JsonConvert.DeserializeObject<List<string>> (tail.ToString())
+                    let previousTailGuids = OrderRedisManager.GetTail nonTipQueryStr
 
                     let tailGuids = previousTipLimitOrderGuid::previousTailGuids
                     OrderRedisManager.SetTail tailGuids nonTipQueryStr
@@ -195,9 +238,11 @@ type RedisOrderBookSide(market: Market, side: Side, tailTip: HeadPointer) =
 
             | Pointer tailTipOrderGuid ->
                 let tailTipOrderGuidStr = tailTipOrderGuid.ToString()
-                let tail = db.StringGet (RedisKey.op_Implicit nonTipQueryStr)
-                if tail.HasValue then
-                    let previousTailGuids = JsonConvert.DeserializeObject<List<string>> (tail.ToString())
+                let tail = OrderRedisManager.GetTail nonTipQueryStr
+                match tail with
+                | [] ->
+                    OrderRedisManager.SetTail (tailTipOrderGuidStr::List.Empty) nonTipQueryStr
+                | previousTailGuids ->
                     let newTail =
                         // TODO: optimize?
                         if previousTailGuids.Any(fun item -> item = tailTipOrderGuidStr) then
@@ -209,32 +254,22 @@ type RedisOrderBookSide(market: Market, side: Side, tailTip: HeadPointer) =
                                                                previousTailGuids
                                                                (limitOrder.OrderInfo.Id.ToString())
                     OrderRedisManager.SetTail newTail nonTipQueryStr
-                else
-                    OrderRedisManager.SetTail [tailTipOrderGuidStr] nonTipQueryStr
 
                 RedisOrderBookSide(market, side, Pointer limitOrder.OrderInfo.Id) :> IOrderBookSide
             | Empty ->
                 RedisOrderBookSide(market, side, Pointer limitOrder.OrderInfo.Id) :> IOrderBookSide
 
         member this.Count () =
-            match this.TipGuid with
-            | None -> 0
+            match tip with
+            | Empty -> 0
             | _ ->
-                let tail = db.StringGet (RedisKey.op_Implicit nonTipQueryStr)
-                if not tail.HasValue then
-                    1
-                else
-                    let tailGuids = JsonConvert.DeserializeObject<List<string>> (tail.ToString())
-                    1 + (tailGuids.Length)
+                1 + (OrderRedisManager.GetTail nonTipQueryStr).Length
 
         member this.SyncAsRoot () =
-            match tailTip with
+            match tip with
             | Pointer tip ->
-                let success = db.StringSet(RedisKey.op_Implicit tipQueryStr,
-                                           RedisValue.op_Implicit (tip.ToString()))
-                if not success then
-                    failwith "Redis set failed, something wrong must be going on"
+                OrderRedisManager.SetTipOrderGuid tipQueryStr (tip.ToString())
             | Root ->
                 ()
             | Empty ->
-                failwith "NIE"
+                raise <| NotImplementedException()
