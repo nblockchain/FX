@@ -5,7 +5,6 @@
 namespace FsharpExchangeDotNetStandard.Redis
 
 open System
-open System.Linq
 
 open FsharpExchangeDotNetStandard
 
@@ -104,16 +103,6 @@ module OrderRedisManager =
 
 type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) =
 
-    let rec AppendElementXToListYAfterElementZ (x: string) (y: List<string>) (z: string) =
-        match y with
-        | [] ->
-            failwith "z not found"
-        | head::tail ->
-            if head = z then
-                head::(x::tail)
-            else
-                head::(AppendElementXToListYAfterElementZ x tail z)
-
     let rec PrependElementXToListYBeforeElementZ (x: string) (y: List<string>) (z: string) =
         match y with
         | [] ->
@@ -123,6 +112,16 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
                 x::(z::tail)
             else
                 head::(PrependElementXToListYBeforeElementZ x tail z)
+
+    let rec GetElementsAfterXInListY (x: string) (y: List<string>) =
+        match y with
+        | [] ->
+            failwith "x not found"
+        | head::tail ->
+            if x = head then
+                tail
+            else
+                GetElementsAfterXInListY x tail
 
     let rec FindNextElementAfterXInListY (x: string) (y: List<string>): Option<List<string>> =
         match y with
@@ -135,7 +134,6 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
                 FindNextElementAfterXInListY x tail
 
     interface IOrderBookSideFragment with
-
         member this.Analyze () =
             match tip with
             | Empty ->
@@ -223,47 +221,68 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
             | Some tip ->
                 RedisOrderBookSideFragment(orderBookSide, Pointer tip.OrderInfo.Id):> IOrderBookSideFragment |> Some
 
-        member this.Prepend (limitOrder: LimitOrder) =
+        member this.Insert (limitOrder: LimitOrder) (canPrepend: LimitOrder -> LimitOrder -> bool)
+                               : IOrderBookSideFragment =
             OrderRedisManager.InsertOrder limitOrder
             match tip with
             | Root ->
-                let maybePreviousTipLimitOrderGuid = OrderRedisManager.GetTipOrderGuid orderBookSide
-                let guidStr = limitOrder.OrderInfo.Id.ToString()
-                OrderRedisManager.SetTipOrderGuid orderBookSide guidStr
+                let maybeTipOrder = OrderRedisManager.GetTipOrder orderBookSide
+                match maybeTipOrder with
+                | None ->
+                    OrderRedisManager.SetTipOrderGuid orderBookSide (limitOrder.OrderInfo.Id.ToString())
+                    this :> IOrderBookSideFragment
+                | Some tipOrder ->
+                    let tailGuids = OrderRedisManager.GetTail orderBookSide
+                    if canPrepend limitOrder tipOrder then
+                        let newTailGuids = tipOrder.OrderInfo.Id.ToString()::tailGuids
+                        OrderRedisManager.SetTail newTailGuids orderBookSide
+                        OrderRedisManager.SetTipOrderGuid orderBookSide (limitOrder.OrderInfo.Id.ToString())
+                        this :> IOrderBookSideFragment
+                    else
+                        match tailGuids with
+                        | [] ->
+                            OrderRedisManager.SetTail (limitOrder.OrderInfo.Id.ToString()::List.empty) orderBookSide
+                            RedisOrderBookSideFragment(orderBookSide, Pointer limitOrder.OrderInfo.Id)
+                                               :> IOrderBookSideFragment
+                        | head::_ ->
+                            let headGuid = head |> Guid
+                            let fragment = RedisOrderBookSideFragment(orderBookSide, Pointer headGuid)
+                                               :> IOrderBookSideFragment
+                            fragment.Insert limitOrder canPrepend
+            | Pointer tailOrderGuid ->
+                let tailOrderGuidStr = tailOrderGuid.ToString()
+                match OrderRedisManager.GetOrderByGuidString tailOrderGuidStr with
+                | None ->
+                    failwithf "Something went wrong, order pointer was %s but was not found" tailOrderGuidStr
+                | Some tailOrder ->
+                    let tailGuids = OrderRedisManager.GetTail orderBookSide
+                    match tailGuids with
+                    | [] ->
+                        failwith "Assertion failed, had a Pointer fragment but tails is empty"
+                    | _ ->
 
-                match maybePreviousTipLimitOrderGuid with
-                | Some previousTipLimitOrderGuid ->
-                    let previousTailGuids = OrderRedisManager.GetTail orderBookSide
-
-                    let tailGuids = previousTipLimitOrderGuid::previousTailGuids
-                    OrderRedisManager.SetTail tailGuids orderBookSide
-                | _ ->
-                    // no need to do anything else
-                    ()
-                this:> IOrderBookSideFragment
-
-            | Pointer tailTipOrderGuid ->
-                let tailTipOrderGuidStr = tailTipOrderGuid.ToString()
-                let tail = OrderRedisManager.GetTail orderBookSide
-                match tail with
-                | [] ->
-                    OrderRedisManager.SetTail (tailTipOrderGuidStr::List.Empty) orderBookSide
-                | previousTailGuids ->
-                    let newTail =
-                        // TODO: optimize?
-                        if previousTailGuids.Any(fun item -> item = tailTipOrderGuidStr) then
-                            PrependElementXToListYBeforeElementZ (limitOrder.OrderInfo.Id.ToString())
-                                                                 previousTailGuids
-                                                                 tailTipOrderGuidStr
+                        if canPrepend limitOrder tailOrder then
+                            let newTailGuids = PrependElementXToListYBeforeElementZ (limitOrder.OrderInfo.Id.ToString())
+                                                                                    tailGuids
+                                                                                    (tailOrder.OrderInfo.Id.ToString())
+                            OrderRedisManager.SetTail newTailGuids orderBookSide
+                            RedisOrderBookSideFragment(orderBookSide, Pointer limitOrder.OrderInfo.Id)
+                                :> IOrderBookSideFragment
                         else
-                            AppendElementXToListYAfterElementZ tailTipOrderGuidStr
-                                                               previousTailGuids
-                                                               (limitOrder.OrderInfo.Id.ToString())
-                    OrderRedisManager.SetTail newTail orderBookSide
-
-                RedisOrderBookSideFragment(orderBookSide, Pointer limitOrder.OrderInfo.Id) :> IOrderBookSideFragment
+                            let tailGuidsWithNewHead = GetElementsAfterXInListY (tailOrder.OrderInfo.Id.ToString())
+                                                                                tailGuids
+                            match tailGuidsWithNewHead with
+                            | [] ->
+                                let newTailGuids = List.append tailGuids (limitOrder.OrderInfo.Id.ToString()::List.empty)
+                                OrderRedisManager.SetTail newTailGuids orderBookSide
+                                this :> IOrderBookSideFragment
+                            | head::_ ->
+                                let headGuid = head |> Guid
+                                let fragment = RedisOrderBookSideFragment(orderBookSide, Pointer headGuid)
+                                                   :> IOrderBookSideFragment
+                                fragment.Insert limitOrder canPrepend
             | Empty ->
-                RedisOrderBookSideFragment(orderBookSide, Pointer limitOrder.OrderInfo.Id) :> IOrderBookSideFragment
+                failwith "NIE"
 
         member this.Count () =
             match tip with

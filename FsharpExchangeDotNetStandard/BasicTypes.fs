@@ -59,18 +59,19 @@ type OrderRequest =
             | Limit item ->
                 item.Order.OrderInfo.Id
 
+
 type HeadTail<'TElement,'TContainer> =
     {
         Head: 'TElement;
         Tail: unit -> 'TContainer;
     }
-and ListAnalysis<'TElement,'TContainer> =
+type ListAnalysis<'TElement,'TContainer> =
     | EmptyList
     | NonEmpty of HeadTail<'TElement,'TContainer>
 
 type IOrderBookSideFragment =
    abstract member Analyze: unit -> ListAnalysis<LimitOrder,IOrderBookSideFragment>
-   abstract member Prepend: LimitOrder -> IOrderBookSideFragment
+   abstract member Insert: LimitOrder -> (LimitOrder -> LimitOrder -> bool) -> IOrderBookSideFragment
    abstract member Tip: Option<LimitOrder>
    abstract member Tail: Option<IOrderBookSideFragment>
    abstract member Count: unit -> int
@@ -85,6 +86,15 @@ type MemoryOrderBookSideFragment(memoryList: List<LimitOrder>) =
                 Head = head
                 Tail = (fun _ -> MemoryOrderBookSideFragment(tail):>IOrderBookSideFragment)
             }
+    let rec InsertOrder (lst: List<LimitOrder>) (limitOrder: LimitOrder) (canPrepend: LimitOrder -> LimitOrder -> bool)
+                       : List<LimitOrder> =
+        match lst with
+        | [] -> limitOrder::List.empty
+        | head::tail ->
+            if canPrepend limitOrder head then
+                limitOrder::(head::tail)
+            else
+                head::(InsertOrder tail limitOrder canPrepend)
     interface IOrderBookSideFragment with
         member this.Analyze() =
             AnalyzeList memoryList
@@ -94,8 +104,9 @@ type MemoryOrderBookSideFragment(memoryList: List<LimitOrder>) =
             match memoryList with
             | [] -> None
             | _::tail -> MemoryOrderBookSideFragment(tail) :> IOrderBookSideFragment |> Some
-        member this.Prepend (limitOrder: LimitOrder) =
-            MemoryOrderBookSideFragment(limitOrder::memoryList) :> IOrderBookSideFragment
+        member this.Insert (limitOrder: LimitOrder) (canPrepend: LimitOrder -> LimitOrder -> bool)
+                               : IOrderBookSideFragment =
+            MemoryOrderBookSideFragment(InsertOrder memoryList limitOrder canPrepend) :> IOrderBookSideFragment
         member this.Count () =
             memoryList.Length
         member this.SyncAsRoot () =

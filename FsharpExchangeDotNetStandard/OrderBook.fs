@@ -12,27 +12,14 @@ type MatchLeftOver =
 type OrderBook(bidSide: IOrderBookSideFragment, askSide: IOrderBookSideFragment,
                emptySide: Side -> IOrderBookSideFragment) =
 
-    let rec InsertLimitOrder (order: LimitOrder) (orderBookSide: IOrderBookSideFragment): IOrderBookSideFragment =
-        let incomingOrderSide = order.OrderInfo.Side
-        match orderBookSide.Analyze() with
-        | EmptyList ->
-            (emptySide incomingOrderSide).Prepend order
-        | NonEmpty headTail ->
-            let head = headTail.Head
-            if (head.OrderInfo.Side <> incomingOrderSide) then
-                failwith "Assertion failed, should not mix different sides in same OrderBookSide structure"
+    let CanPrependOrderBeforeOrder (incomingOrder: LimitOrder) (existingOrder: LimitOrder): bool =
+        match incomingOrder.OrderInfo.Side with
+        | Side.Buy -> incomingOrder.Price > existingOrder.Price
+        | Side.Sell -> incomingOrder.Price < existingOrder.Price
 
-            // FIXME: when order is same price, we should let the oldest order be in the tip...? test this
-            let canAdd =
-                match order.OrderInfo.Side with
-                | Side.Buy -> order.Price > head.Price
-                | Side.Sell -> order.Price < head.Price
-            if canAdd then
-                orderBookSide.Prepend order
-            else
-                let tail = headTail.Tail()
-                let newTail = InsertLimitOrder order tail
-                newTail.Prepend head
+    let rec InsertLimitOrder (incomingOrder: LimitOrder) (orderBookSide: IOrderBookSideFragment)
+                                 : IOrderBookSideFragment =
+        orderBookSide.Insert incomingOrder CanPrependOrderBeforeOrder
 
     let rec MatchMarket (quantityLeftToMatch: decimal) (orderBookSide: IOrderBookSideFragment): IOrderBookSideFragment =
         match orderBookSide.Analyze() with
