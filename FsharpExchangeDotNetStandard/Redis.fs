@@ -216,10 +216,33 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
                     someOrder
 
         member this.Tail =
-            match (this :> IOrderBookSideFragment).Tip with
-            | None -> None
-            | Some tip ->
-                RedisOrderBookSideFragment(orderBookSide, Pointer tip.OrderInfo.Id):> IOrderBookSideFragment |> Some
+            match tip with
+            | Empty -> None
+            | Root ->
+                match (this:>IOrderBookSideFragment).Tip with
+                | None -> None
+                | _ ->
+                    let tail = OrderRedisManager.GetTail orderBookSide
+                    match tail with
+                    | [] ->
+                        RedisOrderBookSideFragment(orderBookSide, Empty) :> IOrderBookSideFragment |> Some
+                    | head::_ ->
+                        RedisOrderBookSideFragment(orderBookSide, Pointer (head |> Guid))
+                            :> IOrderBookSideFragment |> Some
+            | Pointer tipGuid ->
+                let tail = OrderRedisManager.GetTail orderBookSide
+                match tail with
+                | [] ->
+                    failwith "Assertion failed, there can't be a pointer fragment if tail is empty"
+                | _ ->
+                    let tipGuidStr = tipGuid.ToString()
+                    let afterGuids = GetElementsAfterXInListY tipGuidStr tail
+                    match afterGuids with
+                    | [] ->
+                        RedisOrderBookSideFragment(orderBookSide, Empty) :> IOrderBookSideFragment |> Some
+                    | head::_ ->
+                        RedisOrderBookSideFragment(orderBookSide, Pointer (head |> Guid))
+                            :> IOrderBookSideFragment |> Some
 
         member this.Insert (limitOrder: LimitOrder) (canPrepend: LimitOrder -> LimitOrder -> bool)
                                : IOrderBookSideFragment =
@@ -288,7 +311,11 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
             match tip with
             | Empty -> 0
             | _ ->
-                1 + (OrderRedisManager.GetTail orderBookSide).Length
+                match (this:>IOrderBookSideFragment).Tip with
+                | None ->
+                    0
+                | _ ->
+                    1 + (OrderRedisManager.GetTail orderBookSide).Length
 
         member this.SyncAsRoot () =
             match tip with
