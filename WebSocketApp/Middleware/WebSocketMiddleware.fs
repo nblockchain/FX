@@ -21,7 +21,7 @@ module Middleware =
         sockets
         |> List.choose (fun s -> if s <> socket then Some s else None)
 
-    let exchange = Exchange()
+    let exchange = Exchange(Persistence.Redis)
 
     let private sendMessage =
         fun (socket : WebSocket) (message : string) ->

@@ -3,6 +3,7 @@
 //
 
 using System;
+using System.Collections.Generic;
 
 using FsharpExchangeDotNetStandard;
 
@@ -14,7 +15,7 @@ namespace FsharpExchange.Tests
     [TestFixture]
     public class BasicTests
     {
-        internal static void ClearStorageIfNonVolatile()
+        internal static void ClearRedisStorage()
         {
             using (var redis = ConnectionMultiplexer.Connect("localhost,allowAdmin=true"))
             {
@@ -23,34 +24,41 @@ namespace FsharpExchange.Tests
             }
         }
 
+        internal static IEnumerable<Exchange> CreateExchangesOfDifferentTypes()
+        {
+            yield return new Exchange(Persistence.Memory);
+
+            ClearRedisStorage();
+            yield return new Exchange(Persistence.Redis);
+        }
+
         [Test]
         public void Sending_order_with_same_guid_should_be_rejected()
         {
-            ClearStorageIfNonVolatile();
-
             var quantity = 1;
             var price = 10000;
             var someSide = Side.Buy;
             var market = new Market(Currency.BTC, Currency.USD);
 
-            var exchange = new Exchange();
+            foreach (var exchange in CreateExchangesOfDifferentTypes())
+            {
+                var orderBook = exchange[market];
 
-            var orderBook = exchange[market];
+                var someOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), someSide, quantity),
+                                   price);
+                SendOrder(exchange, someOrder, market);
 
-            var someOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), someSide, quantity),
-                               price);
-            SendOrder(exchange, someOrder, market);
+                var someOtherOrderWithSameGuid =
+                    new LimitOrder(
+                        new OrderInfo(new Guid(someOrder.OrderInfo.Id.ToString()),
+                                      someSide, quantity),
+                        price);
 
-            var someOtherOrderWithSameGuid =
-                new LimitOrder(
-                    new OrderInfo(new Guid(someOrder.OrderInfo.Id.ToString()),
-                                  someSide, quantity),
-                    price);
-
-            Assert.Throws<OrderAlreadyExists>(() =>
-                SendOrder(exchange, someOtherOrderWithSameGuid, market)
-            );
+                Assert.Throws<OrderAlreadyExists>(() =>
+                    SendOrder(exchange, someOtherOrderWithSameGuid, market)
+                );
+            }
         }
 
         internal static void SendOrder(Exchange exchange,

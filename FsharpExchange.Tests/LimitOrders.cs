@@ -24,33 +24,36 @@ namespace FsharpExchange.Tests
             exchange.SendLimitOrder(nonMakerOnlyLimitOrder, market);
         }
 
-        internal static Exchange Limit_order_is_accepted_by_empty_exchange
+        internal static IEnumerable<Exchange>
+            Limit_order_is_accepted_by_empty_exchange
             (LimitOrder limitOrder,
              Market market)
         {
-            var exchange = new Exchange();
-            var side = limitOrder.OrderInfo.Side;
+            foreach (var exchange in BasicTests.CreateExchangesOfDifferentTypes())
+            {
+                var side = limitOrder.OrderInfo.Side;
 
-            // first make sure exchange's orderbook is empty
-            var btcUsdOrderBook = exchange[market];
-            Assert.That(btcUsdOrderBook[Side.Buy].Count(), Is.EqualTo(0),
-                        "initial exchange state should be zero orders (buy)");
-            Assert.That(btcUsdOrderBook[Side.Sell].Count(), Is.EqualTo(0),
-                        "initial exchange state should be zero orders (sell)");
+                // first make sure exchange's orderbook is empty
+                var btcUsdOrderBook = exchange[market];
+                Assert.That(btcUsdOrderBook[Side.Buy].Count(), Is.EqualTo(0),
+                            "initial exchange state should be zero orders (buy)");
+                Assert.That(btcUsdOrderBook[Side.Sell].Count(), Is.EqualTo(0),
+                            "initial exchange state should be zero orders (sell)");
 
-            SendOrder(exchange, limitOrder, market);
-            var btcUsdOrderBookAgain = exchange[market];
-            Assert.That(btcUsdOrderBookAgain[side].Count(), Is.EqualTo(1));
-            var uniqueLimitOrder = btcUsdOrderBookAgain[side].Tip.Value;
-            Assert.That(uniqueLimitOrder.OrderInfo.Side, Is.EqualTo(side));
-            Assert.That(uniqueLimitOrder.Price,
-                        Is.EqualTo(limitOrder.Price));
-            Assert.That(uniqueLimitOrder.OrderInfo.Quantity,
-                        Is.EqualTo(limitOrder.OrderInfo.Quantity));
+                SendOrder(exchange, limitOrder, market);
+                var btcUsdOrderBookAgain = exchange[market];
+                Assert.That(btcUsdOrderBookAgain[side].Count(), Is.EqualTo(1));
+                var uniqueLimitOrder = btcUsdOrderBookAgain[side].Tip.Value;
+                Assert.That(uniqueLimitOrder.OrderInfo.Side, Is.EqualTo(side));
+                Assert.That(uniqueLimitOrder.Price,
+                            Is.EqualTo(limitOrder.Price));
+                Assert.That(uniqueLimitOrder.OrderInfo.Quantity,
+                            Is.EqualTo(limitOrder.OrderInfo.Quantity));
 
-            Assert.That(btcUsdOrderBookAgain[side.Other()].Count(), Is.EqualTo(0));
+                Assert.That(btcUsdOrderBookAgain[side.Other()].Count(), Is.EqualTo(0));
 
-            return exchange;
+                yield return exchange;
+            }
         }
 
         [Test]
@@ -62,11 +65,19 @@ namespace FsharpExchange.Tests
 
             var buyOrder =
                 new LimitOrder(new OrderInfo(Guid.NewGuid(), Side.Buy, quantity), price);
-            Limit_order_is_accepted_by_empty_exchange(buyOrder, market);
+            foreach (var exchange in
+                     Limit_order_is_accepted_by_empty_exchange(buyOrder, market))
+            {
+                Assert.IsTrue(true);//NOP, just to fill the loop
+            }
 
             var sellOrder =
                 new LimitOrder(new OrderInfo(Guid.NewGuid(), Side.Sell, quantity), price);
-            Limit_order_is_accepted_by_empty_exchange(sellOrder, market);
+            foreach (var exchange in
+                     Limit_order_is_accepted_by_empty_exchange(sellOrder, market))
+            {
+                Assert.IsTrue(true);//NOP, just to fill the loop
+            }
         }
 
         internal static void AssertAreSameOrdersRegardlessOfOrder
@@ -112,47 +123,51 @@ namespace FsharpExchange.Tests
             var secondAndThirdPrice = price + 1;
             var market = new Market(Currency.BTC, Currency.USD);
 
-            var exchange = new Exchange();
-
-            var orderBook = exchange[market];
-
-            var firstLimitOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), price);
-            SendOrder(exchange, firstLimitOrder, market);
-
-            var secondLimitOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), secondAndThirdPrice);
-            SendOrder(exchange, secondLimitOrder, market);
-
-            var thirdLimitOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), secondAndThirdPrice);
-            SendOrder(exchange, thirdLimitOrder, market);
-
-            var allLimitOrdersSent = new List<LimitOrder> {
-                firstLimitOrder, secondLimitOrder, thirdLimitOrder
-            };
-
-            var orderBookAgain = exchange[market];
-
-            Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
-            var ourSide = new List<LimitOrder>();
-
-            var orderBookThisSide = orderBookAgain[side];
-            while (true)
+            foreach(var exchange in BasicTests.CreateExchangesOfDifferentTypes())
             {
-                try
-                {
-                    var tip = orderBookThisSide.Tip.Value;
-                    ourSide.Add(tip);
-                    orderBookThisSide = orderBookThisSide.Tail.Value;
-                }
-                catch
-                {
-                    break;
-                }
-            }
+                var orderBook = exchange[market];
 
-            AssertAreSameOrdersRegardlessOfOrder(ourSide, allLimitOrdersSent);
+                var firstLimitOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity),
+                                   price);
+                SendOrder(exchange, firstLimitOrder, market);
+
+                var secondLimitOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity),
+                                   secondAndThirdPrice);
+                SendOrder(exchange, secondLimitOrder, market);
+
+                var thirdLimitOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity),
+                                   secondAndThirdPrice);
+                SendOrder(exchange, thirdLimitOrder, market);
+
+                var allLimitOrdersSent = new List<LimitOrder> {
+                    firstLimitOrder, secondLimitOrder, thirdLimitOrder
+                };
+
+                var orderBookAgain = exchange[market];
+
+                Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
+                var ourSide = new List<LimitOrder>();
+
+                var orderBookThisSide = orderBookAgain[side];
+                while (true)
+                {
+                    try
+                    {
+                        var tip = orderBookThisSide.Tip.Value;
+                        ourSide.Add(tip);
+                        orderBookThisSide = orderBookThisSide.Tail.Value;
+                    }
+                    catch
+                    {
+                        break;
+                    }
+                }
+
+                AssertAreSameOrdersRegardlessOfOrder(ourSide, allLimitOrdersSent);
+            }
         }
 
         [Test]
@@ -171,38 +186,41 @@ namespace FsharpExchange.Tests
             var opposingPrice = side == Side.Buy ? price + 1 : price - 1;
             var market = new Market(Currency.BTC, Currency.USD);
 
-            var exchange = new Exchange();
+            foreach (var exchange in BasicTests.CreateExchangesOfDifferentTypes())
+            {
+                var orderBook = exchange[market];
 
-            var orderBook = exchange[market];
+                var firstLimitOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity),
+                                   price);
+                SendOrder(exchange, firstLimitOrder, market);
 
-            var firstLimitOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), price);
-            SendOrder(exchange, firstLimitOrder, market);
+                var secondLimitOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(),
+                                                 quantity),
+                                   opposingPrice);
+                SendOrder(exchange, secondLimitOrder, market);
 
-            var secondLimitOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(), quantity),
-                               opposingPrice);
-            SendOrder(exchange, secondLimitOrder, market);
+                var orderBookAgain = exchange[market];
 
-            var orderBookAgain = exchange[market];
+                Assert.That(orderBookAgain[side].Count(), Is.EqualTo(1));
+                var aLimitOrder = orderBookAgain[side].Tip.Value;
+                Assert.That(aLimitOrder.OrderInfo.Side,
+                            Is.EqualTo(firstLimitOrder.OrderInfo.Side));
+                Assert.That(aLimitOrder.Price,
+                            Is.EqualTo(firstLimitOrder.Price));
+                Assert.That(aLimitOrder.OrderInfo.Quantity,
+                            Is.EqualTo(firstLimitOrder.OrderInfo.Quantity));
 
-            Assert.That(orderBookAgain[side].Count(), Is.EqualTo(1));
-            var aLimitOrder = orderBookAgain[side].Tip.Value;
-            Assert.That(aLimitOrder.OrderInfo.Side,
-                        Is.EqualTo(firstLimitOrder.OrderInfo.Side));
-            Assert.That(aLimitOrder.Price,
-                        Is.EqualTo(firstLimitOrder.Price));
-            Assert.That(aLimitOrder.OrderInfo.Quantity,
-                        Is.EqualTo(firstLimitOrder.OrderInfo.Quantity));
-
-            Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(1));
-            var anotherLimitOrder = orderBookAgain[side.Other()].Tip.Value;
-            Assert.That(anotherLimitOrder.OrderInfo.Side,
-                        Is.EqualTo(secondLimitOrder.OrderInfo.Side));
-            Assert.That(anotherLimitOrder.Price,
-                        Is.EqualTo(secondLimitOrder.Price));
-            Assert.That(anotherLimitOrder.OrderInfo.Quantity,
-                        Is.EqualTo(secondLimitOrder.OrderInfo.Quantity));
+                Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(1));
+                var anotherLimitOrder = orderBookAgain[side.Other()].Tip.Value;
+                Assert.That(anotherLimitOrder.OrderInfo.Side,
+                            Is.EqualTo(secondLimitOrder.OrderInfo.Side));
+                Assert.That(anotherLimitOrder.Price,
+                            Is.EqualTo(secondLimitOrder.Price));
+                Assert.That(anotherLimitOrder.OrderInfo.Quantity,
+                            Is.EqualTo(secondLimitOrder.OrderInfo.Quantity));
+            }
         }
 
         [Test]
@@ -220,21 +238,24 @@ namespace FsharpExchange.Tests
             var price = 10000;
             var market = new Market(Currency.BTC, Currency.USD);
 
-            var exchange = new Exchange();
+            foreach (var exchange in BasicTests.CreateExchangesOfDifferentTypes())
+            {
+                var orderBook = exchange[market];
 
-            var orderBook = exchange[market];
+                var firstLimitOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity),
+                                   price);
+                SendOrder(exchange, firstLimitOrder, market);
 
-            var firstLimitOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), price);
-            SendOrder(exchange, firstLimitOrder, market);
+                var secondLimitMatchingOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(),
+                                                 quantity), price);
+                SendOrder(exchange, secondLimitMatchingOrder, market);
 
-            var secondLimitMatchingOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(), quantity), price);
-            SendOrder(exchange, secondLimitMatchingOrder, market);
-
-            var orderBookAgain = exchange[market];
-            Assert.That(orderBookAgain[side].Count(), Is.EqualTo(0));
-            Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
+                var orderBookAgain = exchange[market];
+                Assert.That(orderBookAgain[side].Count(), Is.EqualTo(0));
+                Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
+            }
         }
 
         [Test]
@@ -253,23 +274,24 @@ namespace FsharpExchange.Tests
             var opposingPrice = side == Side.Buy ? price - 1 : price + 1;
             var market = new Market(Currency.BTC, Currency.USD);
 
-            var exchange = new Exchange();
+            foreach (var exchange in BasicTests.CreateExchangesOfDifferentTypes())
+            {
+                var orderBook = exchange[market];
 
-            var orderBook = exchange[market];
+                var firstLimitOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), price);
+                SendOrder(exchange, firstLimitOrder, market);
 
-            var firstLimitOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), price);
-            SendOrder(exchange, firstLimitOrder, market);
+                var secondLimitOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(), quantity),
+                                   opposingPrice);
+                SendOrder(exchange, secondLimitOrder, market);
 
-            var secondLimitOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(), quantity),
-                               opposingPrice);
-            SendOrder(exchange, secondLimitOrder, market);
+                var orderBookAgain = exchange[market];
 
-            var orderBookAgain = exchange[market];
-
-            Assert.That(orderBookAgain[side].Count(), Is.EqualTo(0));
-            Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
+                Assert.That(orderBookAgain[side].Count(), Is.EqualTo(0));
+                Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
+            }
         }
 
         [Test] // they match at the price of the original order
@@ -288,30 +310,33 @@ namespace FsharpExchange.Tests
             var price = 10000;
             var market = new Market(Currency.BTC, Currency.USD);
 
-            var exchange = new Exchange();
+            foreach (var exchange in BasicTests.CreateExchangesOfDifferentTypes())
+            {
+                var orderBook = exchange[market];
 
-            var orderBook = exchange[market];
+                var firstLimitOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), side,
+                                                 quantityOfFirstOrder),
+                                   price);
+                SendOrder(exchange, firstLimitOrder, market);
 
-            var firstLimitOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantityOfFirstOrder),
-                               price);
-            SendOrder(exchange, firstLimitOrder, market);
+                var secondLimitMatchingOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(),
+                                                 quantityOfSecondOrder),
+                                   price);
+                SendOrder(exchange, secondLimitMatchingOrder, market);
 
-            var secondLimitMatchingOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(), quantityOfSecondOrder),
-                               price);
-            SendOrder(exchange, secondLimitMatchingOrder, market);
-
-            var orderBookAgain = exchange[market];
-            Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
-            Assert.That(orderBookAgain[side].Count(), Is.EqualTo(1));
-            var leftOverLimitOrder = orderBookAgain[side].Tip.Value;
-            Assert.That(leftOverLimitOrder.OrderInfo.Side,
-                        Is.EqualTo(side));
-            Assert.That(leftOverLimitOrder.Price,
-                        Is.EqualTo(price));
-            Assert.That(leftOverLimitOrder.OrderInfo.Quantity,
-                        Is.EqualTo(quantityOfFirstOrder - quantityOfSecondOrder));
+                var orderBookAgain = exchange[market];
+                Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
+                Assert.That(orderBookAgain[side].Count(), Is.EqualTo(1));
+                var leftOverLimitOrder = orderBookAgain[side].Tip.Value;
+                Assert.That(leftOverLimitOrder.OrderInfo.Side,
+                            Is.EqualTo(side));
+                Assert.That(leftOverLimitOrder.Price,
+                            Is.EqualTo(price));
+                Assert.That(leftOverLimitOrder.OrderInfo.Quantity,
+                    Is.EqualTo(quantityOfFirstOrder - quantityOfSecondOrder));
+            }
         }
 
         [Test]
@@ -329,31 +354,32 @@ namespace FsharpExchange.Tests
             var price = 10000;
             var market = new Market(Currency.BTC, Currency.USD);
 
-            var exchange = new Exchange();
+            foreach (var exchange in BasicTests.CreateExchangesOfDifferentTypes())
+            {
+                var orderBook = exchange[market];
 
-            var orderBook = exchange[market];
+                var firstLimitOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), side,
+                                                 quantityOfEachOfTheSittingOrders),
+                                   price);
+                SendOrder(exchange, firstLimitOrder, market);
 
-            var firstLimitOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side,
-                                             quantityOfEachOfTheSittingOrders),
-                               price);
-            SendOrder(exchange, firstLimitOrder, market);
+                var secondLimitMatchingOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), side,
+                                                 quantityOfEachOfTheSittingOrders),
+                                   price);
+                SendOrder(exchange, secondLimitMatchingOrder, market);
 
-            var secondLimitMatchingOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side,
-                                             quantityOfEachOfTheSittingOrders),
-                               price);
-            SendOrder(exchange, secondLimitMatchingOrder, market);
+                var incomingLimitMatchingOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(),
+                                                 quantityOfIncomingOrder),
+                                   price);
+                SendOrder(exchange, incomingLimitMatchingOrder, market);
 
-            var incomingLimitMatchingOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(),
-                                             quantityOfIncomingOrder),
-                               price);
-            SendOrder(exchange, incomingLimitMatchingOrder, market);
-
-            var orderBookAgain = exchange[market];
-            Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
-            Assert.That(orderBookAgain[side].Count(), Is.EqualTo(0));
+                var orderBookAgain = exchange[market];
+                Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
+                Assert.That(orderBookAgain[side].Count(), Is.EqualTo(0));
+            }
         }
 
         [Test]
@@ -371,33 +397,37 @@ namespace FsharpExchange.Tests
             var notTipPrice = side == Side.Buy ? tipPrice / 2 : tipPrice * 2;
             var market = new Market(Currency.BTC, Currency.USD);
 
-            var exchange = new Exchange();
+            foreach (var exchange in BasicTests.CreateExchangesOfDifferentTypes())
+            {
+                var tipLimitOrder =
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity),
+                               tipPrice);
+                SendOrder(exchange, tipLimitOrder, market);
 
-            var tipLimitOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), tipPrice);
-            SendOrder(exchange, tipLimitOrder, market);
+                var nonTipLimitOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity),
+                                   notTipPrice);
+                SendOrder(exchange, nonTipLimitOrder, market);
 
-            var nonTipLimitOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), notTipPrice);
-            SendOrder(exchange, nonTipLimitOrder, market);
+                var incomingLimitMatchingOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(),
+                                                 quantity),
+                                   notTipPrice);
+                SendOrder(exchange, incomingLimitMatchingOrder, market);
 
-            var incomingLimitMatchingOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(), quantity),
-                               notTipPrice);
-            SendOrder(exchange, incomingLimitMatchingOrder, market);
+                var orderBook = exchange[market];
 
-            var orderBook = exchange[market];
+                Assert.That(orderBook[side.Other()].Count(), Is.EqualTo(0));
+                Assert.That(orderBook[side].Count(), Is.EqualTo(1));
 
-            Assert.That(orderBook[side.Other()].Count(), Is.EqualTo(0));
-            Assert.That(orderBook[side].Count(), Is.EqualTo(1));
-
-            var leftOverLimitOrder = orderBook[side].Tip.Value;
-            Assert.That(leftOverLimitOrder.OrderInfo.Side,
-                        Is.EqualTo(side));
-            Assert.That(leftOverLimitOrder.OrderInfo.Quantity,
-                        Is.EqualTo(quantity));
-            Assert.That(leftOverLimitOrder.Price,
-                        Is.EqualTo(notTipPrice));
+                var leftOverLimitOrder = orderBook[side].Tip.Value;
+                Assert.That(leftOverLimitOrder.OrderInfo.Side,
+                            Is.EqualTo(side));
+                Assert.That(leftOverLimitOrder.OrderInfo.Quantity,
+                            Is.EqualTo(quantity));
+                Assert.That(leftOverLimitOrder.Price,
+                            Is.EqualTo(notTipPrice));
+            }
         }
 
         [Test]
@@ -415,33 +445,34 @@ namespace FsharpExchange.Tests
             var price = 10000;
             var market = new Market(Currency.BTC, Currency.USD);
 
-            var exchange = new Exchange();
+            foreach (var exchange in BasicTests.CreateExchangesOfDifferentTypes())
+            {
+                var orderBook = exchange[market];
 
-            var orderBook = exchange[market];
+                var firstLimitOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), side,
+                                                 quantityOfThePreviouslySittingOrder),
+                                   price);
+                SendOrder(exchange, firstLimitOrder, market);
 
-            var firstLimitOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side,
-                                             quantityOfThePreviouslySittingOrder),
-                               price);
-            SendOrder(exchange, firstLimitOrder, market);
+                var incomingLimitMatchingOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(),
+                                                 quantityOfIncomingOrder),
+                                   price);
+                SendOrder(exchange, incomingLimitMatchingOrder, market);
 
-            var incomingLimitMatchingOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(),
-                                             quantityOfIncomingOrder),
-                               price);
-            SendOrder(exchange, incomingLimitMatchingOrder, market);
+                var orderBookAgain = exchange[market];
+                Assert.That(orderBookAgain[side].Count(), Is.EqualTo(0));
+                Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(1));
 
-            var orderBookAgain = exchange[market];
-            Assert.That(orderBookAgain[side].Count(), Is.EqualTo(0));
-            Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(1));
-
-            var leftOverLimitOrder = orderBookAgain[side.Other()].Tip.Value;
-            Assert.That(leftOverLimitOrder.OrderInfo.Side,
-                        Is.EqualTo(incomingLimitMatchingOrder.OrderInfo.Side));
-            Assert.That(leftOverLimitOrder.Price,
-                        Is.EqualTo(price));
-            Assert.That(leftOverLimitOrder.OrderInfo.Quantity,
-                        Is.EqualTo(quantityOfIncomingOrder - quantityOfThePreviouslySittingOrder));
+                var leftOverLimitOrder = orderBookAgain[side.Other()].Tip.Value;
+                Assert.That(leftOverLimitOrder.OrderInfo.Side,
+                            Is.EqualTo(incomingLimitMatchingOrder.OrderInfo.Side));
+                Assert.That(leftOverLimitOrder.Price,
+                            Is.EqualTo(price));
+                Assert.That(leftOverLimitOrder.OrderInfo.Quantity,
+                    Is.EqualTo(quantityOfIncomingOrder - quantityOfThePreviouslySittingOrder));
+            }
         }
 
         [Test]
@@ -452,16 +483,19 @@ namespace FsharpExchange.Tests
             Limit_order_crosses_one_limit_order_and_stays_partially_after_no_more_liquidity_left_in_one_side(Side.Sell);
         }
 
-        private static OrderBook CreateNewExchangeAndSendTheseOrdersToIt
+        private static IEnumerable<OrderBook>
+        CreateNewExchangeAndSendTheseOrdersToIt
         (IEnumerable<LimitOrder> orders)
         {
-            var exchange = new Exchange();
-            var someMarket = new Market(Currency.BTC, Currency.USD);
-            foreach(var order in orders)
+            foreach (var exchange in BasicTests.CreateExchangesOfDifferentTypes())
             {
-                SendOrder(exchange, order, someMarket);
+                var someMarket = new Market(Currency.BTC, Currency.USD);
+                foreach (var order in orders)
+                {
+                    SendOrder(exchange, order, someMarket);
+                }
+                yield return exchange[someMarket];
             }
-            return exchange[someMarket];
         }
 
         private static void Limit_order_should_always_cross_if_there_is_a_matching_limit_order_regardless_of_the_order_they_were_inserted_in_previously
@@ -507,34 +541,37 @@ namespace FsharpExchange.Tests
 
             int combinationCount = 1;
             foreach (var combination in allCombinations) {
+
                 Assert.That(combination.Count(), Is.EqualTo(3),
                             "this test was meant to just test combinations of 3 orders, not more");
 
                 var testMsg =
                     $"testing combination {combinationCount} with {side}";
-                var orderBook =
-                    CreateNewExchangeAndSendTheseOrdersToIt(combination);
-                Assert.That(orderBook[side.Other()].Count(), Is.EqualTo(0),
-                            "(count of the other side) " + testMsg);
-                Assert.That(orderBook[side].Count(), Is.EqualTo(1),
-                            "(count of this side) " + testMsg);
+                foreach (var orderBook in
+                         CreateNewExchangeAndSendTheseOrdersToIt(combination))
+                {
+                    Assert.That(orderBook[side.Other()].Count(), Is.EqualTo(0),
+                                "(count of the other side) " + testMsg);
+                    Assert.That(orderBook[side].Count(), Is.EqualTo(1),
+                                "(count of this side) " + testMsg);
 
-                var leftOverLimitOrder = orderBook[side].Tip.Value;
-                Assert.That(leftOverLimitOrder.OrderInfo.Side,
-                            Is.EqualTo(side));
+                    var leftOverLimitOrder = orderBook[side].Tip.Value;
+                    Assert.That(leftOverLimitOrder.OrderInfo.Side,
+                                Is.EqualTo(side));
 
-                Assert.That(leftOverLimitOrder.OrderInfo.Quantity,
-                            Is.EqualTo(quantity));
+                    Assert.That(leftOverLimitOrder.OrderInfo.Quantity,
+                                Is.EqualTo(quantity));
 
-                var lastOrderWhichIsTheMatchingOrder = combination.Last();
-                Assert.That(leftOverLimitOrder.Price,
-                            Is.Not.EqualTo(tipPrice),
-                            testMsg);
+                    var lastOrderWhichIsTheMatchingOrder = combination.Last();
+                    Assert.That(leftOverLimitOrder.Price,
+                                Is.Not.EqualTo(tipPrice),
+                                testMsg);
 
-                Assert.That(leftOverLimitOrder.Price,
-                            Is.EqualTo(nonTipPrice));
+                    Assert.That(leftOverLimitOrder.Price,
+                                Is.EqualTo(nonTipPrice));
 
-                combinationCount++;
+                    combinationCount++;
+                }
             }
         }
 

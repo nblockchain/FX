@@ -11,8 +11,6 @@ type public Exchange(persistenceType: Persistence) =
         | Persistence.Memory -> MemoryStorageLayer.MarketStore() :> IMarketStore
         | Persistence.Redis -> Redis.MarketStore() :> IMarketStore
 
-    new() = Exchange(Persistence.Redis)
-
     member __.Item
         with get (market: Market): OrderBook =
             marketStore.GetOrderBook market

@@ -25,16 +25,17 @@ namespace FsharpExchange.Tests
             var limitOrder =
                 new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity),
                                priceForLimitOrder);
-            var exchange =
-                LimitOrders.Limit_order_is_accepted_by_empty_exchange(limitOrder, market);
-
-            var marketOrder = new OrderInfo(Guid.NewGuid(), otherSide, quantity);
-            exchange.SendMarketOrder(marketOrder, market);
-            var btcUsdOrderBookAfterMatching = exchange[market];
-            Assert.That(btcUsdOrderBookAfterMatching[Side.Buy].Count(),
-                        Is.EqualTo(0));
-            Assert.That(btcUsdOrderBookAfterMatching[Side.Sell].Count(),
-                        Is.EqualTo(0));
+            foreach (var exchange in
+                LimitOrders.Limit_order_is_accepted_by_empty_exchange(limitOrder, market))
+            {
+                var marketOrder = new OrderInfo(Guid.NewGuid(), otherSide, quantity);
+                exchange.SendMarketOrder(marketOrder, market);
+                var btcUsdOrderBookAfterMatching = exchange[market];
+                Assert.That(btcUsdOrderBookAfterMatching[Side.Buy].Count(),
+                            Is.EqualTo(0));
+                Assert.That(btcUsdOrderBookAfterMatching[Side.Sell].Count(),
+                            Is.EqualTo(0));
+            }
         }
 
         [Test]
@@ -50,20 +51,21 @@ namespace FsharpExchange.Tests
             var quantityForMarketOrder = 1;
             var market = new Market(Currency.BTC, Currency.USD);
 
-            var exchange = new Exchange();
-
-            var marketOrder =
-                new OrderInfo(Guid.NewGuid(), side, quantityForMarketOrder);
-            Assert.Throws<LiquidityProblem>(() =>
+            foreach (var exchange in BasicTests.CreateExchangesOfDifferentTypes())
             {
-                exchange.SendMarketOrder(marketOrder, market);
-            });
+                var marketOrder =
+                    new OrderInfo(Guid.NewGuid(), side, quantityForMarketOrder);
+                Assert.Throws<LiquidityProblem>(() =>
+                {
+                    exchange.SendMarketOrder(marketOrder, market);
+                });
 
-            var btcUsdOrderBookAfterException = exchange[market];
-            Assert.That(btcUsdOrderBookAfterException[Side.Sell].Count(),
-                        Is.EqualTo(0));
-            Assert.That(btcUsdOrderBookAfterException[Side.Buy].Count(),
-                        Is.EqualTo(0));
+                var btcUsdOrderBookAfterException = exchange[market];
+                Assert.That(btcUsdOrderBookAfterException[Side.Sell].Count(),
+                            Is.EqualTo(0));
+                Assert.That(btcUsdOrderBookAfterException[Side.Buy].Count(),
+                            Is.EqualTo(0));
+            }
         }
 
         [Test]
@@ -89,28 +91,30 @@ namespace FsharpExchange.Tests
             var limitOrder =
                 new LimitOrder(new OrderInfo(Guid.NewGuid(), otherSide, quantityForLimitOrder),
                                priceForLimitOrder);
-            var exchange =
-                LimitOrders.Limit_order_is_accepted_by_empty_exchange(limitOrder, market);
-
-            var marketOrder =
-                new OrderInfo(Guid.NewGuid(), side, quantityForMarketOrder);
-            Assert.Throws<LiquidityProblem>(() =>
+            foreach (var exchange in
+                     LimitOrders.Limit_order_is_accepted_by_empty_exchange(limitOrder, market))
             {
-                exchange.SendMarketOrder(marketOrder, market);
-            });
+                var marketOrder =
+                    new OrderInfo(Guid.NewGuid(), side, quantityForMarketOrder);
+                Assert.Throws<LiquidityProblem>(() =>
+                {
+                    exchange.SendMarketOrder(marketOrder, market);
+                });
 
-            var btcUsdOrderBookAfterException = exchange[market];
-            Assert.That(btcUsdOrderBookAfterException[side].Count(),
-                        Is.EqualTo(0));
-            Assert.That(btcUsdOrderBookAfterException[otherSide].Count(),
-                        Is.EqualTo(1));
-            var uniqueLimitOrder =
-                btcUsdOrderBookAfterException[otherSide].Tip.Value;
-            Assert.That(uniqueLimitOrder.OrderInfo.Side, Is.EqualTo(otherSide));
-            Assert.That(uniqueLimitOrder.Price,
-                        Is.EqualTo(limitOrder.Price));
-            Assert.That(uniqueLimitOrder.OrderInfo.Quantity,
-                        Is.EqualTo(limitOrder.OrderInfo.Quantity));
+                var btcUsdOrderBookAfterException = exchange[market];
+                Assert.That(btcUsdOrderBookAfterException[side].Count(),
+                            Is.EqualTo(0));
+                Assert.That(btcUsdOrderBookAfterException[otherSide].Count(),
+                            Is.EqualTo(1));
+                var uniqueLimitOrder =
+                    btcUsdOrderBookAfterException[otherSide].Tip.Value;
+                Assert.That(uniqueLimitOrder.OrderInfo.Side, Is.EqualTo(otherSide));
+                Assert.That(uniqueLimitOrder.Price,
+                            Is.EqualTo(limitOrder.Price));
+                Assert.That(uniqueLimitOrder.OrderInfo.Quantity,
+                            Is.EqualTo(limitOrder.OrderInfo.Quantity));
+            }
+
         }
 
         [Test]
@@ -135,44 +139,48 @@ namespace FsharpExchange.Tests
             var otherSide = side.Other();
 
             var limitOrder1 =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), otherSide, quantityForLimitOrder1),
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), otherSide, 
+                                             quantityForLimitOrder1),
                                priceForLimitOrder);
-            var exchange =
-                LimitOrders.Limit_order_is_accepted_by_empty_exchange(limitOrder1, market);
-            var limitOrder2 =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), otherSide, quantityForLimitOrder2),
-                               priceForLimitOrder);
-            LimitOrders.SendOrder(exchange, limitOrder2, market);
-
-            var marketOrder =
-                new OrderInfo(Guid.NewGuid(), side, quantityForMarketOrder);
-            Assert.Throws<LiquidityProblem>(() =>
+            foreach (var exchange in
+                     LimitOrders.Limit_order_is_accepted_by_empty_exchange
+                     (limitOrder1, market))
             {
-                exchange.SendMarketOrder(marketOrder, market);
-            });
+                var limitOrder2 =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), otherSide, quantityForLimitOrder2),
+                                   priceForLimitOrder);
+                LimitOrders.SendOrder(exchange, limitOrder2, market);
 
-            var btcUsdOrderBookAfterException = exchange[market];
-            Assert.That(btcUsdOrderBookAfterException[side].Count(),
-                        Is.EqualTo(0));
-            Assert.That(btcUsdOrderBookAfterException[otherSide].Count(),
-                        Is.EqualTo(2));
+                var marketOrder =
+                    new OrderInfo(Guid.NewGuid(), side, quantityForMarketOrder);
+                Assert.Throws<LiquidityProblem>(() =>
+                {
+                    exchange.SendMarketOrder(marketOrder, market);
+                });
 
-            var firstLimitOrderAfterException =
-                btcUsdOrderBookAfterException[otherSide].Tip.Value;
-            Assert.That(firstLimitOrderAfterException.OrderInfo.Side,
-                        Is.EqualTo(otherSide));
-            Assert.That(firstLimitOrderAfterException.Price,
-                        Is.EqualTo(limitOrder1.Price));
-            Assert.That(firstLimitOrderAfterException.OrderInfo.Quantity,
-                        Is.EqualTo(limitOrder1.OrderInfo.Quantity));
-            var secondLimitOrderAfterException =
-                btcUsdOrderBookAfterException[otherSide].Tail.Value.Tip.Value;
-            Assert.That(secondLimitOrderAfterException.OrderInfo.Side,
-                        Is.EqualTo(otherSide));
-            Assert.That(secondLimitOrderAfterException.Price,
-                        Is.EqualTo(limitOrder2.Price));
-            Assert.That(secondLimitOrderAfterException.OrderInfo.Quantity,
-                        Is.EqualTo(limitOrder2.OrderInfo.Quantity));
+                var btcUsdOrderBookAfterException = exchange[market];
+                Assert.That(btcUsdOrderBookAfterException[side].Count(),
+                            Is.EqualTo(0));
+                Assert.That(btcUsdOrderBookAfterException[otherSide].Count(),
+                            Is.EqualTo(2));
+
+                var firstLimitOrderAfterException =
+                    btcUsdOrderBookAfterException[otherSide].Tip.Value;
+                Assert.That(firstLimitOrderAfterException.OrderInfo.Side,
+                            Is.EqualTo(otherSide));
+                Assert.That(firstLimitOrderAfterException.Price,
+                            Is.EqualTo(limitOrder1.Price));
+                Assert.That(firstLimitOrderAfterException.OrderInfo.Quantity,
+                            Is.EqualTo(limitOrder1.OrderInfo.Quantity));
+                var secondLimitOrderAfterException =
+                    btcUsdOrderBookAfterException[otherSide].Tail.Value.Tip.Value;
+                Assert.That(secondLimitOrderAfterException.OrderInfo.Side,
+                            Is.EqualTo(otherSide));
+                Assert.That(secondLimitOrderAfterException.Price,
+                            Is.EqualTo(limitOrder2.Price));
+                Assert.That(secondLimitOrderAfterException.OrderInfo.Quantity,
+                            Is.EqualTo(limitOrder2.OrderInfo.Quantity));
+            }
         }
 
         [Test]
@@ -199,23 +207,26 @@ namespace FsharpExchange.Tests
             var limitOrder1 =
                 new LimitOrder(new OrderInfo(Guid.NewGuid(), otherSide, quantityForLimitOrder1),
                                priceForLimitOrder);
-            var exchange =
-                LimitOrders.Limit_order_is_accepted_by_empty_exchange(limitOrder1, market);
-            var limitOrder2 =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), otherSide, quantityForLimitOrder2),
-                               priceForLimitOrder);
-            LimitOrders.SendOrder(exchange, limitOrder2, market);
+            foreach (var exchange in
+                     LimitOrders.Limit_order_is_accepted_by_empty_exchange
+                     (limitOrder1, market))
+            {
+                var limitOrder2 =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), otherSide, quantityForLimitOrder2),
+                                   priceForLimitOrder);
+                LimitOrders.SendOrder(exchange, limitOrder2, market);
 
-            var marketOrder =
-                new OrderInfo(Guid.NewGuid(), side, quantityForMarketOrder);
+                var marketOrder =
+                    new OrderInfo(Guid.NewGuid(), side, quantityForMarketOrder);
 
-            exchange.SendMarketOrder(marketOrder, market);
+                exchange.SendMarketOrder(marketOrder, market);
 
-            var btcUsdOrderBookAfterException = exchange[market];
-            Assert.That(btcUsdOrderBookAfterException[side].Count(),
-                        Is.EqualTo(0));
-            Assert.That(btcUsdOrderBookAfterException[otherSide].Count(),
-                        Is.EqualTo(0));
+                var btcUsdOrderBookAfterException = exchange[market];
+                Assert.That(btcUsdOrderBookAfterException[side].Count(),
+                            Is.EqualTo(0));
+                Assert.That(btcUsdOrderBookAfterException[otherSide].Count(),
+                            Is.EqualTo(0));
+            }
         }
 
         [Test]
@@ -236,26 +247,30 @@ namespace FsharpExchange.Tests
             var otherSide = side.Other();
 
             var limitOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantityForLimitOrder),
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), side,
+                                             quantityForLimitOrder),
                                priceForLimitOrder);
-            var exchange =
-                LimitOrders.Limit_order_is_accepted_by_empty_exchange(limitOrder, market);
+            foreach (var exchange in
+                     LimitOrders.Limit_order_is_accepted_by_empty_exchange
+                     (limitOrder, market))
+            {
 
-            var marketOrder = new OrderInfo(Guid.NewGuid(), otherSide, quantityForMarketOrder);
-            exchange.SendMarketOrder(marketOrder, market);
-            var btcUsdOrderBookAfterMatching = exchange[market];
-            Assert.That(btcUsdOrderBookAfterMatching[otherSide].Count(),
-                        Is.EqualTo(0));
-            Assert.That(btcUsdOrderBookAfterMatching[side].Count(),
-                        Is.EqualTo(1));
-            var limitOrderLeftAfterPartialMatch =
-                btcUsdOrderBookAfterMatching[side].Tip.Value;
-            Assert.That(limitOrderLeftAfterPartialMatch.OrderInfo.Side,
-                        Is.EqualTo(side));
-            Assert.That(limitOrderLeftAfterPartialMatch.Price,
-                        Is.EqualTo(limitOrder.Price));
-            Assert.That(limitOrderLeftAfterPartialMatch.OrderInfo.Quantity,
-                        Is.EqualTo(quantityForLimitOrder - quantityForMarketOrder));
+                var marketOrder = new OrderInfo(Guid.NewGuid(), otherSide, quantityForMarketOrder);
+                exchange.SendMarketOrder(marketOrder, market);
+                var btcUsdOrderBookAfterMatching = exchange[market];
+                Assert.That(btcUsdOrderBookAfterMatching[otherSide].Count(),
+                            Is.EqualTo(0));
+                Assert.That(btcUsdOrderBookAfterMatching[side].Count(),
+                            Is.EqualTo(1));
+                var limitOrderLeftAfterPartialMatch =
+                    btcUsdOrderBookAfterMatching[side].Tip.Value;
+                Assert.That(limitOrderLeftAfterPartialMatch.OrderInfo.Side,
+                            Is.EqualTo(side));
+                Assert.That(limitOrderLeftAfterPartialMatch.Price,
+                            Is.EqualTo(limitOrder.Price));
+                Assert.That(limitOrderLeftAfterPartialMatch.OrderInfo.Quantity,
+                            Is.EqualTo(quantityForLimitOrder - quantityForMarketOrder));
+            }
         }
 
         [Test]
@@ -278,28 +293,31 @@ namespace FsharpExchange.Tests
             var limitOrder1 =
                 new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantityForLimitOrders),
                                priceForLimitOrder);
-            var exchange =
-                LimitOrders.Limit_order_is_accepted_by_empty_exchange(limitOrder1, market);
-            var limitOrder2 =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantityForLimitOrders),
-                               priceForLimitOrder);
-            LimitOrders.SendOrder(exchange, limitOrder2, market);
+            foreach (var exchange in
+                     LimitOrders.Limit_order_is_accepted_by_empty_exchange
+                     (limitOrder1, market))
+            {
+                var limitOrder2 =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantityForLimitOrders),
+                                   priceForLimitOrder);
+                LimitOrders.SendOrder(exchange, limitOrder2, market);
 
-            var marketOrder = new OrderInfo(Guid.NewGuid(), otherSide, quantityForMarketOrder);
-            exchange.SendMarketOrder(marketOrder, market);
-            var btcUsdOrderBookAfterMatching = exchange[market];
-            Assert.That(btcUsdOrderBookAfterMatching[otherSide].Count(),
-                        Is.EqualTo(0));
-            Assert.That(btcUsdOrderBookAfterMatching[side].Count(),
-                        Is.EqualTo(1));
-            var limitOrderLeftAfterPartialMatch =
-                btcUsdOrderBookAfterMatching[side].Tip.Value;
-            Assert.That(limitOrderLeftAfterPartialMatch.OrderInfo.Side,
-                        Is.EqualTo(side));
-            Assert.That(limitOrderLeftAfterPartialMatch.Price,
-                        Is.EqualTo(limitOrder1.Price));
-            Assert.That(limitOrderLeftAfterPartialMatch.OrderInfo.Quantity,
-                        Is.EqualTo(2 + 2 - 3));
+                var marketOrder = new OrderInfo(Guid.NewGuid(), otherSide, quantityForMarketOrder);
+                exchange.SendMarketOrder(marketOrder, market);
+                var btcUsdOrderBookAfterMatching = exchange[market];
+                Assert.That(btcUsdOrderBookAfterMatching[otherSide].Count(),
+                            Is.EqualTo(0));
+                Assert.That(btcUsdOrderBookAfterMatching[side].Count(),
+                            Is.EqualTo(1));
+                var limitOrderLeftAfterPartialMatch =
+                    btcUsdOrderBookAfterMatching[side].Tip.Value;
+                Assert.That(limitOrderLeftAfterPartialMatch.OrderInfo.Side,
+                            Is.EqualTo(side));
+                Assert.That(limitOrderLeftAfterPartialMatch.Price,
+                            Is.EqualTo(limitOrder1.Price));
+                Assert.That(limitOrderLeftAfterPartialMatch.OrderInfo.Quantity,
+                            Is.EqualTo(2 + 2 - 3));
+            }
         }
 
         [Test]

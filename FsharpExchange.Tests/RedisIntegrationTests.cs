@@ -22,7 +22,7 @@ namespace FsharpExchange.Tests
         [SetUp]
         public void ClearRedis()
         {
-            BasicTests.ClearStorageIfNonVolatile();
+            BasicTests.ClearRedisStorage();
         }
 
         private Exchange CreateExchangeAndSendFirstLimitOrder
