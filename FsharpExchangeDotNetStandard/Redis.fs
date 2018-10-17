@@ -124,10 +124,10 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
     let rec GetElementsAfterXInListY (x: string) (y: List<string>) =
         match y with
         | [] ->
-            failwith "x not found"
+            None
         | head::tail ->
             if x = head then
-                tail
+                tail |> Some
             else
                 GetElementsAfterXInListY x tail
 
@@ -146,7 +146,10 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
         | Pointer tipGuid ->
             let tipGuidStr = tipGuid.ToString()
             let tail = OrderRedisManager.GetTail orderBookSide
-            let newTail = GetElementsAfterXInListY tipGuidStr tail
+            let newTail =
+                 match GetElementsAfterXInListY tipGuidStr tail with
+                 | None -> List.empty
+                 | Some subTail -> subTail
 
             // TODO: do the two above in one batch?
             OrderRedisManager.SetTipOrderGuid orderBookSide tipGuidStr
@@ -262,9 +265,11 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
                     let tipGuidStr = tipGuid.ToString()
                     let afterGuids = GetElementsAfterXInListY tipGuidStr tail
                     match afterGuids with
-                    | [] ->
+                    | None ->
+                        failwithf "Assertion failed, no %s found in tail" tipGuidStr
+                    | Some [] ->
                         RedisOrderBookSideFragment(orderBookSide, Empty) :> IOrderBookSideFragment |> Some
-                    | head::_ ->
+                    | Some (head::_) ->
                         RedisOrderBookSideFragment(orderBookSide, Pointer (head |> Guid))
                             :> IOrderBookSideFragment |> Some
 
@@ -317,14 +322,17 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
                             RedisOrderBookSideFragment(orderBookSide, Pointer limitOrder.OrderInfo.Id)
                                 :> IOrderBookSideFragment
                         else
-                            let tailGuidsWithNewHead = GetElementsAfterXInListY (tailOrder.OrderInfo.Id.ToString())
+                            let tailOrderGuidStr = (tailOrder.OrderInfo.Id.ToString())
+                            let tailGuidsWithNewHead = GetElementsAfterXInListY tailOrderGuidStr
                                                                                 tailGuids
                             match tailGuidsWithNewHead with
-                            | [] ->
+                            | None ->
+                                failwithf "Assertion failed, no %s found in tail" tailOrderGuidStr
+                            | Some [] ->
                                 let newTailGuids = List.append tailGuids (limitOrder.OrderInfo.Id.ToString()::List.empty)
                                 OrderRedisManager.SetTail newTailGuids orderBookSide
                                 this :> IOrderBookSideFragment
-                            | head::_ ->
+                            | Some (head::_) ->
                                 let headGuid = head |> Guid
                                 let fragment = RedisOrderBookSideFragment(orderBookSide, Pointer headGuid)
                                                    :> IOrderBookSideFragment
