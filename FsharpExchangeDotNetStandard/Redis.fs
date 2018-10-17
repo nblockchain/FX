@@ -325,4 +325,4 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
             | Root ->
                 ()
             | Empty ->
-                raise <| NotImplementedException()
+                ()
