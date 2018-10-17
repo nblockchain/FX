@@ -265,13 +265,14 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
                         match tailGuids with
                         | [] ->
                             OrderRedisManager.SetTail (limitOrder.OrderInfo.Id.ToString()::List.empty) orderBookSide
-                            RedisOrderBookSideFragment(orderBookSide, Pointer limitOrder.OrderInfo.Id)
-                                               :> IOrderBookSideFragment
                         | head::_ ->
                             let headGuid = head |> Guid
                             let fragment = RedisOrderBookSideFragment(orderBookSide, Pointer headGuid)
                                                :> IOrderBookSideFragment
                             fragment.Insert limitOrder canPrepend
+                                |> ignore
+
+                        this :> IOrderBookSideFragment
             | Pointer tailOrderGuid ->
                 let tailOrderGuidStr = tailOrderGuid.ToString()
                 match OrderRedisManager.GetOrderByGuidString tailOrderGuidStr with
