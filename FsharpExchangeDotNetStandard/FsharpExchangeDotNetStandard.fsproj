@@ -6,8 +6,9 @@
 
   <ItemGroup>
     <Compile Include="BasicTypes.fs" />
-    <Compile Include="Redis.fs" />
     <Compile Include="OrderBook.fs" />
+    <Compile Include="Redis.fs" />
+    <Compile Include="MemoryStorageLayer.fs" />
     <Compile Include="Exchange.fs" />
   </ItemGroup>
   <ItemGroup>

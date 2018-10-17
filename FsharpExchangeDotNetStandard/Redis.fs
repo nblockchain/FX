@@ -60,8 +60,16 @@ module OrderRedisManager =
             tipGuidResult.ToString() |> Some
 
     let SetTipOrderGuid (orderBookSide: OrderBookSide) (guidStr: string): unit =
+        if guidStr.Contains " " then
+            invalidArg guidStr "guids should not contain spaces"
         let success = db.StringSet(RedisKey.op_Implicit orderBookSide.TipQuery,
                                    RedisValue.op_Implicit guidStr)
+        if not success then
+            failwith "Redis set failed, something wrong must be going on"
+
+    let UnsetTipOrderGuid (orderBookSide: OrderBookSide): unit =
+        let success = db.StringSet(RedisKey.op_Implicit orderBookSide.TipQuery,
+                                   RedisValue.op_Implicit String.Empty)
         if not success then
             failwith "Redis set failed, something wrong must be going on"
 
@@ -132,6 +140,22 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
                 Some tail
             else
                 FindNextElementAfterXInListY x tail
+
+    member this.SyncAsRoot () =
+        match tip with
+        | Pointer tipGuid ->
+            let tipGuidStr = tipGuid.ToString()
+            let tail = OrderRedisManager.GetTail orderBookSide
+            let newTail = GetElementsAfterXInListY tipGuidStr tail
+
+            // TODO: do the two above in one batch?
+            OrderRedisManager.SetTipOrderGuid orderBookSide tipGuidStr
+            OrderRedisManager.SetTail newTail orderBookSide
+        | Root ->
+            ()
+        | Empty ->
+            OrderRedisManager.UnsetTipOrderGuid orderBookSide
+            OrderRedisManager.SetTail List.empty orderBookSide
 
     interface IOrderBookSideFragment with
         member this.Analyze () =
@@ -319,11 +343,40 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
                 | _ ->
                     1 + (OrderRedisManager.GetTail orderBookSide).Length
 
-        member this.SyncAsRoot () =
-            match tip with
-            | Pointer tip ->
-                OrderRedisManager.SetTipOrderGuid orderBookSide (tip.ToString())
-            | Root ->
-                ()
-            | Empty ->
-                ()
+type MarketStore() =
+    let mutable markets: Map<Market, OrderBook> = Map.empty
+    let lockObject = Object()
+
+    let GetOrderBookInternal (market: Market): OrderBook =
+        let maybeOrderBook = Map.tryFind market markets
+        match maybeOrderBook with
+        | None ->
+            let bidSide = OrderBookSide(market, Side.Buy)
+            let askSide = OrderBookSide(market, Side.Sell)
+            let newOrderBook =
+                OrderBook(RedisOrderBookSideFragment(bidSide, Root) :> IOrderBookSideFragment,
+                          RedisOrderBookSideFragment(askSide, Root) :> IOrderBookSideFragment,
+                          (fun side -> RedisOrderBookSideFragment(OrderBookSide(market, side), Empty)
+                                           :> IOrderBookSideFragment))
+            markets <- markets.Add(market, newOrderBook)
+            newOrderBook
+        | Some(orderBookFound) ->
+            orderBookFound
+
+    interface IMarketStore with
+
+        member this.GetOrderBook (market: Market): OrderBook =
+            lock lockObject (fun _ ->
+                GetOrderBookInternal market
+            )
+
+        member this.ReceiveOrder (order: OrderRequest) (market: Market) =
+            lock lockObject (
+                fun _ ->
+                    let orderBook = GetOrderBookInternal market
+                    let newOrderBook = orderBook.InsertOrder order
+                    let bidSide = newOrderBook.[Side.Buy] :?> RedisOrderBookSideFragment
+                    let askSide = newOrderBook.[Side.Sell] :?> RedisOrderBookSideFragment
+                    bidSide.SyncAsRoot()
+                    askSide.SyncAsRoot()
+                )

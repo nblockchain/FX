@@ -75,7 +75,6 @@ type IOrderBookSideFragment =
    abstract member Tip: Option<LimitOrder>
    abstract member Tail: Option<IOrderBookSideFragment>
    abstract member Count: unit -> int
-   abstract member SyncAsRoot: unit -> unit
 
 type MemoryOrderBookSideFragment(memoryList: List<LimitOrder>) =
     let rec AnalyzeList (lst: List<LimitOrder>): ListAnalysis<LimitOrder,IOrderBookSideFragment> =
@@ -109,8 +108,6 @@ type MemoryOrderBookSideFragment(memoryList: List<LimitOrder>) =
             MemoryOrderBookSideFragment(InsertOrder memoryList limitOrder canPrepend) :> IOrderBookSideFragment
         member this.Count () =
             memoryList.Length
-        member this.SyncAsRoot () =
-            () // NOP, no need for memory
 
 type public Market =
     { BuyCurrency: Currency; SellCurrency: Currency }

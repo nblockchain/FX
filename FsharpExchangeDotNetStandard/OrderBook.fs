@@ -127,10 +127,6 @@ type OrderBook(bidSide: IOrderBookSideFragment, askSide: IOrderBookSideFragment,
                               InsertLimitOrder leftOverOrder askSide,
                               emptySide)
 
-    member __.SyncAsRoot() =
-        bidSide.SyncAsRoot()
-        askSide.SyncAsRoot()
-
     member internal this.InsertOrder (order: OrderRequest): OrderBook =
         match order with
         | Limit(limitOrder) ->
@@ -148,3 +144,6 @@ type OrderBook(bidSide: IOrderBookSideFragment, askSide: IOrderBookSideFragment,
             | Side.Buy -> bidSide
             | Side.Sell -> askSide
 
+type IMarketStore =
+    abstract member GetOrderBook: Market -> OrderBook
+    abstract member ReceiveOrder: OrderRequest -> Market -> unit
