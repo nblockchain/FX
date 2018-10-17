@@ -306,7 +306,8 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
                                                    :> IOrderBookSideFragment
                                 fragment.Insert limitOrder canPrepend
             | Empty ->
-                failwith "NIE"
+                RedisOrderBookSideFragment(orderBookSide, Pointer limitOrder.OrderInfo.Id)
+                                   :> IOrderBookSideFragment
 
         member this.Count () =
             match tip with
