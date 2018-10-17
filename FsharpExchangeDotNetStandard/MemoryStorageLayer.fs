@@ -34,6 +34,10 @@ type MarketStore() =
             lock lockObject (
                 fun _ ->
                     let orderBook = GetOrderBookInternal market
+                    let bidSide = orderBook.[Side.Buy] :?> MemoryOrderBookSideFragment
+                    let askSide = orderBook.[Side.Sell] :?> MemoryOrderBookSideFragment
+                    if askSide.OrderExists order.Id || bidSide.OrderExists order.Id then
+                        raise OrderAlreadyExists
                     let newOrderBook = orderBook.InsertOrder order
                     markets <- markets.Add(market, newOrderBook)
                 )

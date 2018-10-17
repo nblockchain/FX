@@ -5,9 +5,11 @@
 namespace FsharpExchangeDotNetStandard
 
 open System
+open System.Linq
 
 exception LiquidityProblem
 exception MatchExpectationsUnmet
+exception OrderAlreadyExists
 
 type public Currency =
     | BTC
@@ -94,6 +96,10 @@ type MemoryOrderBookSideFragment(memoryList: List<LimitOrder>) =
                 limitOrder::(head::tail)
             else
                 head::(InsertOrder tail limitOrder canPrepend)
+
+    member __.OrderExists guid =
+        memoryList.Any(fun limitOrder -> limitOrder.OrderInfo.Id = guid)
+
     interface IOrderBookSideFragment with
         member this.Analyze() =
             AnalyzeList memoryList

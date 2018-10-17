@@ -84,11 +84,25 @@ module OrderRedisManager =
             let tipOrder = JsonConvert.DeserializeObject<LimitOrder> (orderSerialized.ToString())
             tipOrder |> Some
 
-    let GetOrderByGuidString (guid: string): Option<LimitOrder> =
-        let orderSerialized = db.StringGet (RedisKey.op_Implicit guid)
+    let private GetOrderSerialized (guidStr: string): Option<string> =
+        let orderSerialized = db.StringGet (RedisKey.op_Implicit guidStr)
         if not orderSerialized.HasValue then
             None
         else
+            orderSerialized.ToString() |> Some
+
+    let OrderExists (guid: Guid): bool =
+        let guidStr = guid.ToString()
+        let maybeOrderSerialized = GetOrderSerialized guidStr
+        match maybeOrderSerialized with
+        | None -> false
+        | _ -> true
+
+    let GetOrderByGuidString (guid: string): Option<LimitOrder> =
+        let maybeOrderSerialized = GetOrderSerialized guid
+        match maybeOrderSerialized with
+        | None -> None
+        | Some orderSerialized ->
             let order = JsonConvert.DeserializeObject<LimitOrder> (orderSerialized.ToString())
             order |> Some
 
@@ -382,6 +396,8 @@ type MarketStore() =
             lock lockObject (
                 fun _ ->
                     let orderBook = GetOrderBookInternal market
+                    if OrderRedisManager.OrderExists order.Id then
+                        raise OrderAlreadyExists
                     let newOrderBook = orderBook.InsertOrder order
                     let bidSide = newOrderBook.[Side.Buy] :?> RedisOrderBookSideFragment
                     let askSide = newOrderBook.[Side.Sell] :?> RedisOrderBookSideFragment

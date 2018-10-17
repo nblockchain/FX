@@ -22,11 +22,7 @@ namespace FsharpExchange.Tests
         [SetUp]
         public void ClearRedis()
         {
-            using (var redis = ConnectionMultiplexer.Connect("localhost,allowAdmin=true"))
-            {
-                var server = redis.GetServer("localhost:6379");
-                server.FlushDatabase();
-            }
+            BasicTests.ClearStorageIfNonVolatile();
         }
 
         private Exchange CreateExchangeAndSendFirstLimitOrder
