@@ -152,7 +152,7 @@ namespace FsharpExchange.Tests
                 }
             }
 
-            AssertAreSameOrdersRegardlessOfOrder(allLimitOrdersSent, ourSide);
+            AssertAreSameOrdersRegardlessOfOrder(ourSide, allLimitOrdersSent);
         }
 
         [Test]
