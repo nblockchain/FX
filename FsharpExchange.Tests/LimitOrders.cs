@@ -126,7 +126,7 @@ namespace FsharpExchange.Tests
 
             var thirdLimitOrder =
                 new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity), secondAndThirdPrice);
-            SendOrder(exchange, secondLimitOrder, market);
+            SendOrder(exchange, thirdLimitOrder, market);
 
             var allLimitOrdersSent = new List<LimitOrder> {
                 firstLimitOrder, secondLimitOrder, thirdLimitOrder
