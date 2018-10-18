@@ -1,5 +1,6 @@
 ﻿//
 // Copyright (C) 2017-2018 Gate Digital Services Ltd. (Gatecoin)
+// Copyright (C) 2018 Diginex Ltd. (www.diginex.com)
 //
 
 using System;
