@@ -6,7 +6,6 @@
 namespace FsharpExchangeDotNetStandard
 
 open System
-open System.Linq
 
 exception LiquidityProblem
 exception MatchExpectationsUnmet

@@ -3,7 +3,7 @@
 // Copyright (C) 2018 Diginex Ltd. (www.diginex.com)
 //
 
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
