@@ -78,43 +78,6 @@ type IOrderBookSideFragment =
    abstract member Tail: Option<IOrderBookSideFragment>
    abstract member Count: unit -> int
 
-type MemoryOrderBookSideFragment(memoryList: List<LimitOrder>) =
-    let rec AnalyzeList (lst: List<LimitOrder>): ListAnalysis<LimitOrder,IOrderBookSideFragment> =
-        match lst with
-        | [] -> ListAnalysis.EmptyList
-        | head::tail ->
-            NonEmpty {
-                Head = head
-                Tail = (fun _ -> MemoryOrderBookSideFragment(tail):>IOrderBookSideFragment)
-            }
-    let rec InsertOrder (lst: List<LimitOrder>) (limitOrder: LimitOrder) (canPrepend: LimitOrder -> LimitOrder -> bool)
-                       : List<LimitOrder> =
-        match lst with
-        | [] -> limitOrder::List.empty
-        | head::tail ->
-            if canPrepend limitOrder head then
-                limitOrder::(head::tail)
-            else
-                head::(InsertOrder tail limitOrder canPrepend)
-
-    member __.OrderExists guid =
-        memoryList.Any(fun limitOrder -> limitOrder.OrderInfo.Id = guid)
-
-    interface IOrderBookSideFragment with
-        member this.Analyze() =
-            AnalyzeList memoryList
-        member this.Tip =
-            List.tryHead memoryList
-        member this.Tail =
-            match memoryList with
-            | [] -> None
-            | _::tail -> MemoryOrderBookSideFragment(tail) :> IOrderBookSideFragment |> Some
-        member this.Insert (limitOrder: LimitOrder) (canPrepend: LimitOrder -> LimitOrder -> bool)
-                               : IOrderBookSideFragment =
-            MemoryOrderBookSideFragment(InsertOrder memoryList limitOrder canPrepend) :> IOrderBookSideFragment
-        member this.Count () =
-            memoryList.Length
-
 type public Market =
     { BuyCurrency: Currency; SellCurrency: Currency }
 
