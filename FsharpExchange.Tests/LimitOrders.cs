@@ -1,4 +1,4 @@
-//
+﻿//
 // Copyright (C) 2017-2018 Gate Digital Services Ltd. (Gatecoin)
 // Copyright (C) 2018 Diginex Ltd. (www.diginex.com)
 //
@@ -36,9 +36,9 @@ namespace FsharpExchange.Tests
 
                 // first make sure exchange's orderbook is empty
                 var btcUsdOrderBook = exchange[market];
-                Assert.That(btcUsdOrderBook[Side.Buy].Count(), Is.EqualTo(0),
+                Assert.That(btcUsdOrderBook[Side.Bid].Count(), Is.EqualTo(0),
                             "initial exchange state should be zero orders (buy)");
-                Assert.That(btcUsdOrderBook[Side.Sell].Count(), Is.EqualTo(0),
+                Assert.That(btcUsdOrderBook[Side.Ask].Count(), Is.EqualTo(0),
                             "initial exchange state should be zero orders (sell)");
 
                 SendOrder(exchange, limitOrder, market);
@@ -65,7 +65,7 @@ namespace FsharpExchange.Tests
             var market = new Market(Currency.BTC, Currency.USD);
 
             var buyOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), Side.Buy, quantity), price);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), Side.Bid, quantity), price);
             foreach (var exchange in
                      Limit_order_is_accepted_by_empty_exchange(buyOrder, market))
             {
@@ -73,7 +73,7 @@ namespace FsharpExchange.Tests
             }
 
             var sellOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), Side.Sell, quantity), price);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), Side.Ask, quantity), price);
             foreach (var exchange in
                      Limit_order_is_accepted_by_empty_exchange(sellOrder, market))
             {
@@ -174,9 +174,9 @@ namespace FsharpExchange.Tests
         [Test]
         public void Limit_orders_of_same_side_never_match()
         {
-            Limit_orders_of_same_side_never_match(Side.Buy);
+            Limit_orders_of_same_side_never_match(Side.Bid);
 
-            Limit_orders_of_same_side_never_match(Side.Sell);
+            Limit_orders_of_same_side_never_match(Side.Ask);
         }
 
         private static void Limit_orders_of_different_sides_but_different_price_dont_match
@@ -184,7 +184,7 @@ namespace FsharpExchange.Tests
         {
             var quantity = 1;
             var price = 10000;
-            var opposingPrice = side == Side.Buy ? price + 1 : price - 1;
+            var opposingPrice = side == Side.Bid ? price + 1 : price - 1;
             var market = new Market(Currency.BTC, Currency.USD);
 
             foreach (var exchange in BasicTests.CreateExchangesOfDifferentTypes())
@@ -227,9 +227,9 @@ namespace FsharpExchange.Tests
         [Test]
         public void Limit_orders_of_different_sides_but_different_price_dont_match()
         {
-            Limit_orders_of_different_sides_but_different_price_dont_match(Side.Buy);
+            Limit_orders_of_different_sides_but_different_price_dont_match(Side.Bid);
 
-            Limit_orders_of_different_sides_but_different_price_dont_match(Side.Sell);
+            Limit_orders_of_different_sides_but_different_price_dont_match(Side.Ask);
         }
 
         private static void Limit_order_can_cross_another_limit_order_of_same_amount_and_same_price
@@ -262,9 +262,9 @@ namespace FsharpExchange.Tests
         [Test]
         public void Limit_order_can_cross_another_limit_order_of_same_amount_and_same_price()
         {
-            Limit_order_can_cross_another_limit_order_of_same_amount_and_same_price(Side.Buy);
+            Limit_order_can_cross_another_limit_order_of_same_amount_and_same_price(Side.Bid);
 
-            Limit_order_can_cross_another_limit_order_of_same_amount_and_same_price(Side.Sell);
+            Limit_order_can_cross_another_limit_order_of_same_amount_and_same_price(Side.Ask);
         }
 
         private static void Limit_orders_of_different_sides_and_different_price_can_match
@@ -272,7 +272,7 @@ namespace FsharpExchange.Tests
         {
             var quantity = 1;
             var price = 1000;
-            var opposingPrice = side == Side.Buy ? price - 1 : price + 1;
+            var opposingPrice = side == Side.Bid ? price - 1 : price + 1;
             var market = new Market(Currency.BTC, Currency.USD);
 
             foreach (var exchange in BasicTests.CreateExchangesOfDifferentTypes())
@@ -298,9 +298,9 @@ namespace FsharpExchange.Tests
         [Test] // they match at the price of the original order
         public void Limit_orders_of_different_sides_and_different_price_can_match()
         {
-            Limit_orders_of_different_sides_and_different_price_can_match(Side.Buy);
+            Limit_orders_of_different_sides_and_different_price_can_match(Side.Bid);
 
-            Limit_orders_of_different_sides_and_different_price_can_match(Side.Sell);
+            Limit_orders_of_different_sides_and_different_price_can_match(Side.Ask);
         }
 
         private static void Limit_order_half_crosses_another_limit_order_of_same_price
@@ -343,9 +343,9 @@ namespace FsharpExchange.Tests
         [Test]
         public void Limit_order_half_crosses_another_limit_order_of_same_price()
         {
-            Limit_order_half_crosses_another_limit_order_of_same_price(Side.Buy);
+            Limit_order_half_crosses_another_limit_order_of_same_price(Side.Bid);
 
-            Limit_order_half_crosses_another_limit_order_of_same_price(Side.Sell);
+            Limit_order_half_crosses_another_limit_order_of_same_price(Side.Ask);
         }
 
         private static void Limit_order_crosses_two_limit_orders_of_same_price (Side side)
@@ -386,16 +386,16 @@ namespace FsharpExchange.Tests
         [Test]
         public void Limit_order_crosses_two_limit_orders_of_same_price()
         {
-            Limit_order_crosses_two_limit_orders_of_same_price(Side.Buy);
+            Limit_order_crosses_two_limit_orders_of_same_price(Side.Bid);
 
-            Limit_order_crosses_two_limit_orders_of_same_price(Side.Sell);
+            Limit_order_crosses_two_limit_orders_of_same_price(Side.Ask);
         }
 
         private static void Limit_order_that_matches_when_inserted_always_chooses_the_best_price_even_if_trader_was_stupid_to_choose_a_worse_price(Side side)
         {
             var quantity = 1;
             var tipPrice = 10000;
-            var notTipPrice = side == Side.Buy ? tipPrice / 2 : tipPrice * 2;
+            var notTipPrice = side == Side.Bid ? tipPrice / 2 : tipPrice * 2;
             var market = new Market(Currency.BTC, Currency.USD);
 
             foreach (var exchange in BasicTests.CreateExchangesOfDifferentTypes())
@@ -434,9 +434,9 @@ namespace FsharpExchange.Tests
         [Test]
         public void Limit_order_that_matches_when_inserted_always_chooses_the_best_price_even_if_trader_was_stupid_to_choose_a_worse_price()
         {
-            Limit_order_that_matches_when_inserted_always_chooses_the_best_price_even_if_trader_was_stupid_to_choose_a_worse_price(Side.Buy);
+            Limit_order_that_matches_when_inserted_always_chooses_the_best_price_even_if_trader_was_stupid_to_choose_a_worse_price(Side.Bid);
 
-            Limit_order_that_matches_when_inserted_always_chooses_the_best_price_even_if_trader_was_stupid_to_choose_a_worse_price(Side.Sell);
+            Limit_order_that_matches_when_inserted_always_chooses_the_best_price_even_if_trader_was_stupid_to_choose_a_worse_price(Side.Ask);
         }
 
         private static void Limit_order_crosses_one_limit_order_and_stays_partially_after_no_more_liquidity_left_in_one_side(Side side)
@@ -479,9 +479,9 @@ namespace FsharpExchange.Tests
         [Test]
         public void Limit_order_crosses_one_limit_order_and_stays_partially_after_no_more_liquidity_left_in_one_side()
         {
-            Limit_order_crosses_one_limit_order_and_stays_partially_after_no_more_liquidity_left_in_one_side(Side.Buy);
+            Limit_order_crosses_one_limit_order_and_stays_partially_after_no_more_liquidity_left_in_one_side(Side.Bid);
 
-            Limit_order_crosses_one_limit_order_and_stays_partially_after_no_more_liquidity_left_in_one_side(Side.Sell);
+            Limit_order_crosses_one_limit_order_and_stays_partially_after_no_more_liquidity_left_in_one_side(Side.Ask);
         }
 
         private static IEnumerable<OrderBook>
@@ -505,9 +505,9 @@ namespace FsharpExchange.Tests
             var quantity = 1;
             var lowestPriceOfOrderBookSide = 10000;
             var highestPriceOfOrderBookSide = 15000;
-            var tipPrice = side == Side.Buy ?
+            var tipPrice = side == Side.Bid ?
                 highestPriceOfOrderBookSide : lowestPriceOfOrderBookSide;
-            var nonTipPrice = side == Side.Buy ?
+            var nonTipPrice = side == Side.Bid ?
                 lowestPriceOfOrderBookSide : highestPriceOfOrderBookSide;
 
             var lowestSittingLimitOrder =
@@ -579,9 +579,9 @@ namespace FsharpExchange.Tests
         [Test]
         public void Limit_order_should_always_cross_if_there_is_a_matching_limit_order_regardless_of_the_order_they_were_inserted_in_previously()
         {
-            Limit_order_should_always_cross_if_there_is_a_matching_limit_order_regardless_of_the_order_they_were_inserted_in_previously(Side.Buy);
+            Limit_order_should_always_cross_if_there_is_a_matching_limit_order_regardless_of_the_order_they_were_inserted_in_previously(Side.Bid);
 
-            Limit_order_should_always_cross_if_there_is_a_matching_limit_order_regardless_of_the_order_they_were_inserted_in_previously(Side.Sell);
+            Limit_order_should_always_cross_if_there_is_a_matching_limit_order_regardless_of_the_order_they_were_inserted_in_previously(Side.Ask);
         }
     }
 }

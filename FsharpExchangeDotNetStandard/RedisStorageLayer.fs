@@ -373,8 +373,8 @@ type MarketStore() =
         let maybeOrderBook = Map.tryFind market markets
         match maybeOrderBook with
         | None ->
-            let bidSide = OrderBookSide(market, Side.Buy)
-            let askSide = OrderBookSide(market, Side.Sell)
+            let bidSide = OrderBookSide(market, Side.Bid)
+            let askSide = OrderBookSide(market, Side.Ask)
             let newOrderBook =
                 OrderBook(RedisOrderBookSideFragment(bidSide, Root) :> IOrderBookSideFragment,
                           RedisOrderBookSideFragment(askSide, Root) :> IOrderBookSideFragment,
@@ -399,8 +399,8 @@ type MarketStore() =
                     if OrderRedisManager.OrderExists order.Id then
                         raise OrderAlreadyExists
                     let newOrderBook = orderBook.InsertOrder order
-                    let bidSide = newOrderBook.[Side.Buy] :?> RedisOrderBookSideFragment
-                    let askSide = newOrderBook.[Side.Sell] :?> RedisOrderBookSideFragment
+                    let bidSide = newOrderBook.[Side.Bid] :?> RedisOrderBookSideFragment
+                    let askSide = newOrderBook.[Side.Ask] :?> RedisOrderBookSideFragment
                     bidSide.SyncAsRoot()
                     askSide.SyncAsRoot()
                 )

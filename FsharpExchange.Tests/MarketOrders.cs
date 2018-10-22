@@ -31,9 +31,9 @@ namespace FsharpExchange.Tests
                 var marketOrder = new OrderInfo(Guid.NewGuid(), otherSide, quantity);
                 exchange.SendMarketOrder(marketOrder, market);
                 var btcUsdOrderBookAfterMatching = exchange[market];
-                Assert.That(btcUsdOrderBookAfterMatching[Side.Buy].Count(),
+                Assert.That(btcUsdOrderBookAfterMatching[Side.Bid].Count(),
                             Is.EqualTo(0));
-                Assert.That(btcUsdOrderBookAfterMatching[Side.Sell].Count(),
+                Assert.That(btcUsdOrderBookAfterMatching[Side.Ask].Count(),
                             Is.EqualTo(0));
             }
         }
@@ -41,9 +41,9 @@ namespace FsharpExchange.Tests
         [Test]
         public void Market_order_exact_match_on_exchange_with_one_limit_order()
         {
-            Market_order_exact_match_on_exchange_with_one_limit_order(Side.Buy);
+            Market_order_exact_match_on_exchange_with_one_limit_order(Side.Bid);
 
-            Market_order_exact_match_on_exchange_with_one_limit_order(Side.Sell);
+            Market_order_exact_match_on_exchange_with_one_limit_order(Side.Ask);
         }
 
         private void Market_order_throws_on_exchange_with_no_limit_orders_and_orderbooks_are_left_intact(Side side)
@@ -61,9 +61,9 @@ namespace FsharpExchange.Tests
                 });
 
                 var btcUsdOrderBookAfterException = exchange[market];
-                Assert.That(btcUsdOrderBookAfterException[Side.Sell].Count(),
+                Assert.That(btcUsdOrderBookAfterException[Side.Ask].Count(),
                             Is.EqualTo(0));
-                Assert.That(btcUsdOrderBookAfterException[Side.Buy].Count(),
+                Assert.That(btcUsdOrderBookAfterException[Side.Bid].Count(),
                             Is.EqualTo(0));
             }
         }
@@ -71,9 +71,9 @@ namespace FsharpExchange.Tests
         [Test]
         public void Market_order_throws_on_exchange_with_no_limit_orders_and_orderbooks_are_left_intact()
         {
-            Market_order_throws_on_exchange_with_no_limit_orders_and_orderbooks_are_left_intact(Side.Sell);
+            Market_order_throws_on_exchange_with_no_limit_orders_and_orderbooks_are_left_intact(Side.Ask);
 
-            Market_order_throws_on_exchange_with_no_limit_orders_and_orderbooks_are_left_intact(Side.Buy);
+            Market_order_throws_on_exchange_with_no_limit_orders_and_orderbooks_are_left_intact(Side.Bid);
         }
 
         private void Market_order_throws_on_exchange_with_not_enough_liquidity_in_single_limit_order_and_orderbooks_are_left_intact(Side side)
@@ -120,9 +120,9 @@ namespace FsharpExchange.Tests
         [Test]
         public void Market_order_throws_on_exchange_with_not_enough_liquidity_in_single_limit_order_and_orderbooks_are_left_intact()
         {
-            Market_order_throws_on_exchange_with_not_enough_liquidity_in_single_limit_order_and_orderbooks_are_left_intact(Side.Sell);
+            Market_order_throws_on_exchange_with_not_enough_liquidity_in_single_limit_order_and_orderbooks_are_left_intact(Side.Ask);
 
-            Market_order_throws_on_exchange_with_not_enough_liquidity_in_single_limit_order_and_orderbooks_are_left_intact(Side.Buy);
+            Market_order_throws_on_exchange_with_not_enough_liquidity_in_single_limit_order_and_orderbooks_are_left_intact(Side.Bid);
         }
 
         private void Market_order_throws_on_exchange_with_not_enough_liquidity_in_limit_orders_and_orderbooks_are_left_intact(Side side)
@@ -186,9 +186,9 @@ namespace FsharpExchange.Tests
         [Test]
         public void Market_order_throws_on_exchange_with_not_enough_liquidity_in_limit_orders_and_orderbooks_are_left_intact()
         {
-            Market_order_throws_on_exchange_with_not_enough_liquidity_in_limit_orders_and_orderbooks_are_left_intact(Side.Sell);
+            Market_order_throws_on_exchange_with_not_enough_liquidity_in_limit_orders_and_orderbooks_are_left_intact(Side.Ask);
 
-            Market_order_throws_on_exchange_with_not_enough_liquidity_in_limit_orders_and_orderbooks_are_left_intact(Side.Buy);
+            Market_order_throws_on_exchange_with_not_enough_liquidity_in_limit_orders_and_orderbooks_are_left_intact(Side.Bid);
         }
 
         private void Market_order_matches_with_more_than_one_limit_order(Side side)
@@ -232,9 +232,9 @@ namespace FsharpExchange.Tests
         [Test]
         public void Market_order_matches_with_more_than_one_limit_order()
         {
-            Market_order_matches_with_more_than_one_limit_order(Side.Sell);
+            Market_order_matches_with_more_than_one_limit_order(Side.Ask);
 
-            Market_order_matches_with_more_than_one_limit_order(Side.Buy);
+            Market_order_matches_with_more_than_one_limit_order(Side.Bid);
         }
 
         private void Market_order_partial_match_on_exchange_with_one_limit_order(Side side)
@@ -276,9 +276,9 @@ namespace FsharpExchange.Tests
         [Test]
         public void Market_order_partial_match_on_exchange_with_one_limit_order()
         {
-            Market_order_partial_match_on_exchange_with_one_limit_order(Side.Buy);
+            Market_order_partial_match_on_exchange_with_one_limit_order(Side.Bid);
 
-            Market_order_partial_match_on_exchange_with_one_limit_order(Side.Sell);
+            Market_order_partial_match_on_exchange_with_one_limit_order(Side.Ask);
         }
 
         private void Market_order_partial_match_on_exchange_with_2nd_limit_order(Side side)
@@ -323,9 +323,9 @@ namespace FsharpExchange.Tests
         [Test]
         public void Market_order_partial_match_on_exchange_with_2nd_limit_order()
         {
-            Market_order_partial_match_on_exchange_with_2nd_limit_order(Side.Buy);
+            Market_order_partial_match_on_exchange_with_2nd_limit_order(Side.Bid);
 
-            Market_order_partial_match_on_exchange_with_2nd_limit_order(Side.Sell);
+            Market_order_partial_match_on_exchange_with_2nd_limit_order(Side.Ask);
         }
 
     }

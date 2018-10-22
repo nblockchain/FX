@@ -15,8 +15,8 @@ type OrderBook(bidSide: IOrderBookSideFragment, askSide: IOrderBookSideFragment,
 
     let CanPrependOrderBeforeOrder (incomingOrder: LimitOrder) (existingOrder: LimitOrder): bool =
         match incomingOrder.OrderInfo.Side with
-        | Side.Buy -> incomingOrder.Price > existingOrder.Price
-        | Side.Sell -> incomingOrder.Price < existingOrder.Price
+        | Side.Bid -> incomingOrder.Price > existingOrder.Price
+        | Side.Ask -> incomingOrder.Price < existingOrder.Price
 
     let rec InsertLimitOrder (incomingOrder: LimitOrder) (orderBookSide: IOrderBookSideFragment)
                                  : IOrderBookSideFragment =
@@ -53,8 +53,8 @@ type OrderBook(bidSide: IOrderBookSideFragment, askSide: IOrderBookSideFragment,
 
         let matches: bool =
             match incomingOrder.OrderInfo.Side with
-            | Side.Sell -> orderInBook.Price >= incomingOrder.Price
-            | Side.Buy -> orderInBook.Price <= incomingOrder.Price
+            | Side.Ask -> orderInBook.Price >= incomingOrder.Price
+            | Side.Bid -> orderInBook.Price <= incomingOrder.Price
 
         if not matches then
             NoMatch
@@ -99,8 +99,8 @@ type OrderBook(bidSide: IOrderBookSideFragment, askSide: IOrderBookSideFragment,
         let incomingSide = incomingOrder.OrderInfo.Side
         let matchingSide,nonMatchingSide =
             match incomingSide with
-            | Side.Buy -> askSide,bidSide
-            | Side.Sell -> bidSide,askSide
+            | Side.Bid -> askSide,bidSide
+            | Side.Ask -> bidSide,askSide
 
         let resultingSide,otherSide =
             match matchingSide.Analyze() with
@@ -119,8 +119,8 @@ type OrderBook(bidSide: IOrderBookSideFragment, askSide: IOrderBookSideFragment,
                 | UnmatchedLimitOrderLeftOverAfterPartialMatch leftOverOrder ->
                     (InsertLimitOrder leftOverOrder nonMatchingSide),(emptySide (incomingSide.Other()))
         match incomingSide with
-        | Side.Buy -> OrderBook(resultingSide, otherSide, emptySide)
-        | Side.Sell -> OrderBook(otherSide, resultingSide, emptySide)
+        | Side.Bid -> OrderBook(resultingSide, otherSide, emptySide)
+        | Side.Ask -> OrderBook(otherSide, resultingSide, emptySide)
 
     member internal this.InsertOrder (order: OrderRequest): OrderBook =
         match order with
@@ -128,16 +128,16 @@ type OrderBook(bidSide: IOrderBookSideFragment, askSide: IOrderBookSideFragment,
             MatchLimit limitOrder this
         | Market(marketOrder) ->
             match marketOrder.Side with
-            | Side.Buy ->
+            | Side.Bid ->
                 OrderBook(bidSide, MatchMarket marketOrder.Quantity askSide, emptySide)
-            | Side.Sell ->
+            | Side.Ask ->
                 OrderBook(MatchMarket marketOrder.Quantity bidSide, askSide, emptySide)
 
     member x.Item
         with get (side: Side) =
             match side with
-            | Side.Buy -> bidSide
-            | Side.Sell -> askSide
+            | Side.Bid -> bidSide
+            | Side.Ask -> askSide
 
 type IMarketStore =
     abstract member GetOrderBook: Market -> OrderBook

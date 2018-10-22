@@ -37,7 +37,7 @@ namespace FsharpExchange.Tests
         {
             var quantity = 1;
             var price = 10000;
-            var someSide = Side.Buy;
+            var someSide = Side.Bid;
             var market = new Market(Currency.BTC, Currency.USD);
 
             foreach (var exchange in CreateExchangesOfDifferentTypes())

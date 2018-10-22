@@ -93,7 +93,7 @@ namespace FsharpExchange.Tests
         {
             var quantity = 1;
             var price = 10000;
-            var side = Side.Buy;
+            var side = Side.Bid;
             var market = new Market(Currency.BTC, Currency.USD);
 
             var limitOrder =
@@ -107,7 +107,7 @@ namespace FsharpExchange.Tests
         {
             var quantity = 1;
             var price = 10000;
-            var side = Side.Buy;
+            var side = Side.Bid;
             var market = new Market(Currency.BTC, Currency.USD);
 
             var firstLimitOrder =
@@ -182,7 +182,7 @@ namespace FsharpExchange.Tests
         {
             var quantity = 1;
             var price = 10000;
-            var side = Side.Buy;
+            var side = Side.Bid;
             var market = new Market(Currency.BTC, Currency.USD);
 
             var firstLimitOrder =

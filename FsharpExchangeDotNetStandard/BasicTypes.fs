@@ -16,17 +16,17 @@ type public Currency =
     | USD
 
 type Side =
-    | Buy
-    | Sell
+    | Bid
+    | Ask
     static member Parse (side: string): Side =
         match side.ToLower() with
-        | "buy" -> Buy
-        | "sell" -> Sell
+        | "bid" -> Bid
+        | "ask" -> Ask
         | invalidSide -> invalidArg "side" (sprintf "Unknown side %s" side)
     member self.Other() =
         match self with
-        | Side.Buy -> Side.Sell
-        | Side.Sell -> Side.Buy
+        | Side.Bid -> Side.Ask
+        | Side.Ask -> Side.Bid
 
 type LimitOrderRequestType =
     | Normal

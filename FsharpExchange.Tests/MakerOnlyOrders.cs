@@ -26,9 +26,9 @@ namespace FsharpExchange.Tests
 
                 // first make sure exchange's orderbook is empty
                 var someOrderBook = exchange[market];
-                Assert.That(someOrderBook[Side.Buy].Count(), Is.EqualTo(0),
+                Assert.That(someOrderBook[Side.Bid].Count(), Is.EqualTo(0),
                             "initial exchange state should be zero orders (buy)");
-                Assert.That(someOrderBook[Side.Sell].Count(), Is.EqualTo(0),
+                Assert.That(someOrderBook[Side.Ask].Count(), Is.EqualTo(0),
                             "initial exchange state should be zero orders (sell)");
 
                 SendOrder(exchange, limitOrder, market);
@@ -55,11 +55,11 @@ namespace FsharpExchange.Tests
             var someMarket = new Market(Currency.BTC, Currency.USD);
 
             var buyOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), Side.Buy, quantity), price);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), Side.Bid, quantity), price);
             Limit_order_is_accepted_by_empty_exchange(buyOrder, someMarket);
 
             var sellOrder =
-                new LimitOrder(new OrderInfo(Guid.NewGuid(), Side.Sell, quantity), price);
+                new LimitOrder(new OrderInfo(Guid.NewGuid(), Side.Ask, quantity), price);
             Limit_order_is_accepted_by_empty_exchange(sellOrder, someMarket);
         }
 
@@ -125,9 +125,9 @@ namespace FsharpExchange.Tests
         [Test]
         public void MakerOnly_orders_of_same_side_never_match()
         {
-            MakerOnly_orders_of_same_side_never_match(Side.Buy);
+            MakerOnly_orders_of_same_side_never_match(Side.Bid);
 
-            MakerOnly_orders_of_same_side_never_match(Side.Sell);
+            MakerOnly_orders_of_same_side_never_match(Side.Ask);
         }
 
         private static void MakerOnly_orders_of_different_sides_but_different_price_dont_match
@@ -135,7 +135,7 @@ namespace FsharpExchange.Tests
         {
             var quantity = 1;
             var price = 10000;
-            var opposingPrice = side == Side.Buy ? price + 1 : price - 1;
+            var opposingPrice = side == Side.Bid ? price + 1 : price - 1;
             var market = new Market(Currency.BTC, Currency.USD);
 
             foreach (var exchange in BasicTests.CreateExchangesOfDifferentTypes())
@@ -176,9 +176,9 @@ namespace FsharpExchange.Tests
         [Test]
         public void MakerOnly_orders_of_different_sides_but_different_price_dont_match()
         {
-            MakerOnly_orders_of_different_sides_but_different_price_dont_match(Side.Buy);
+            MakerOnly_orders_of_different_sides_but_different_price_dont_match(Side.Bid);
 
-            MakerOnly_orders_of_different_sides_but_different_price_dont_match(Side.Sell);
+            MakerOnly_orders_of_different_sides_but_different_price_dont_match(Side.Ask);
         }
 
         private static void MakerOnly_order_can_not_cross_another_limit_order_of_same_amount_and_same_price_and_should_be_rejected
@@ -212,9 +212,9 @@ namespace FsharpExchange.Tests
         [Test]
         public void MakerOnly_order_can_not_cross_another_limit_order_of_same_amount_and_same_price_and_should_be_rejected()
         {
-            MakerOnly_order_can_not_cross_another_limit_order_of_same_amount_and_same_price_and_should_be_rejected(Side.Buy);
+            MakerOnly_order_can_not_cross_another_limit_order_of_same_amount_and_same_price_and_should_be_rejected(Side.Bid);
 
-            MakerOnly_order_can_not_cross_another_limit_order_of_same_amount_and_same_price_and_should_be_rejected(Side.Sell);
+            MakerOnly_order_can_not_cross_another_limit_order_of_same_amount_and_same_price_and_should_be_rejected(Side.Ask);
         }
     }
 }
