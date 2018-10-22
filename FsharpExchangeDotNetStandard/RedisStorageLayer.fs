@@ -41,8 +41,15 @@ type HeadPointer =
     | Empty
 
 module OrderRedisManager =
+
+    let redisHostEnvValue = Environment.GetEnvironmentVariable "REDIS_HOST" |> Option.ofObj
+    let redisHostAddress =
+        match redisHostEnvValue with
+        | None | Some "" -> "localhost"
+        | Some realValue -> realValue
+
     // TODO: dispose
-    let redis = ConnectionMultiplexer.Connect "localhost"
+    let redis = ConnectionMultiplexer.Connect redisHostAddress
     let db = redis.GetDatabase()
 
     let InsertOrder (limitOrder: LimitOrder): unit =
