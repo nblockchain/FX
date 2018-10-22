@@ -13,3 +13,10 @@ type LimitOrder =
         Side: string;
         Quantity: decimal;
     }
+
+[<CLIMutable>]
+type MarketOrder =
+    {
+        Side: string;
+        Quantity: decimal;
+    }

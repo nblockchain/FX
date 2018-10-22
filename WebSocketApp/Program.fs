@@ -45,6 +45,14 @@ let handlePostLimitOrder =
             return! next ctx
         }
 
+let handlePostMarketOrder =
+    fun (next: HttpFunc) (ctx: HttpContext) ->
+        task {
+            let! marketOrder = ctx.BindJsonAsync<MarketOrder>()
+            do! sendMarketOrderToEngine marketOrder
+            return! next ctx
+        }
+
 let webApp =
     choose [
         GET >=>
@@ -56,6 +64,7 @@ let webApp =
             choose [
                 route "/message" >=> handlePostMessage
                 route "/limitOrder" >=> handlePostLimitOrder
+                route "/marketOrder" >=> handlePostMarketOrder
             ]
         setStatusCode 404 >=> text "Not Found" ]
 

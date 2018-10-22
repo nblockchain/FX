@@ -49,6 +49,19 @@ module Middleware =
                 exchange.SendLimitOrder(limitOrderReq, market)
                 ()
             }
+
+    let sendMarketOrderToEngine =
+        fun (marketOrder: WebSocketApp.Models.MarketOrder) ->
+            task {
+                let orderInfo = { Id = Guid.NewGuid();
+                                  Side = FsharpExchangeDotNetStandard.Side.Parse marketOrder.Side;
+                                  Quantity = marketOrder.Quantity; }
+                let market = { BuyCurrency = Currency.BTC; SellCurrency = Currency.USD; }
+
+                // TODO: make async
+                exchange.SendMarketOrder(orderInfo, market)
+                ()
+            }
     
     let sendMessageToSockets =
         fun message ->
