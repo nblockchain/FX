@@ -55,6 +55,7 @@ let webApp =
         POST >=>
             choose [
                 route "/message" >=> handlePostMessage
+                route "/limitOrder" >=> handlePostLimitOrder
             ]
         setStatusCode 404 >=> text "Not Found" ]
 
