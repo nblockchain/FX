@@ -71,12 +71,18 @@ type ListAnalysis<'TElement,'TContainer> =
     | EmptyList
     | NonEmpty of HeadTail<'TElement,'TContainer>
 
+type ITransaction =
+    interface end
+
 type IOrderBookSideFragment =
     abstract member Analyze: unit -> ListAnalysis<LimitOrder,IOrderBookSideFragment>
-    abstract member Insert: LimitOrder -> (LimitOrder -> LimitOrder -> bool) -> IOrderBookSideFragment
+    abstract member Insert: LimitOrder -> (LimitOrder -> LimitOrder -> bool) -> OrderBookSideFragmentModification
     abstract member Tip: Option<LimitOrder>
     abstract member Tail: Option<IOrderBookSideFragment>
     abstract member Count: unit -> int
+
+and OrderBookSideFragmentModification =
+    ITransaction -> IOrderBookSideFragment
 
 type public Market =
     { BuyCurrency: Currency; SellCurrency: Currency }

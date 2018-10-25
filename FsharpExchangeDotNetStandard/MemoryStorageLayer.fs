@@ -41,10 +41,16 @@ type MemoryOrderBookSideFragment(memoryList: List<LimitOrder>) =
             | [] -> None
             | _::tail -> MemoryOrderBookSideFragment(tail) :> IOrderBookSideFragment |> Some
         member this.Insert (limitOrder: LimitOrder) (canPrepend: LimitOrder -> LimitOrder -> bool)
-                               : IOrderBookSideFragment =
-            MemoryOrderBookSideFragment(InsertOrder memoryList limitOrder canPrepend) :> IOrderBookSideFragment
+                               : OrderBookSideFragmentModification =
+            (fun _ ->
+                MemoryOrderBookSideFragment(InsertOrder memoryList limitOrder canPrepend) :> IOrderBookSideFragment
+            )
         member this.Count () =
             memoryList.Length
+
+// fake because in Memory we actually don't need transactions
+type internal FakeTransaction() =
+    interface ITransaction
 
 type MarketStore() =
     let mutable markets: Map<Market, OrderBook> = Map.empty
@@ -76,6 +82,6 @@ type MarketStore() =
                     let askSide = orderBook.[Side.Ask] :?> MemoryOrderBookSideFragment
                     if askSide.OrderExists order.Id || bidSide.OrderExists order.Id then
                         raise OrderAlreadyExists
-                    let newOrderBook = orderBook.InsertOrder order
+                    let newOrderBook = (orderBook.InsertOrder order) (FakeTransaction():>ITransaction)
                     markets <- markets.Add(market, newOrderBook)
                 )
