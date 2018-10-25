@@ -450,6 +450,10 @@ type MarketStore() =
                     let askSide = newOrderBook.[Side.Ask] :?> RedisOrderBookSideFragment
                     bidSide.SyncAsRoot redisTransaction
                     askSide.SyncAsRoot redisTransaction
-                    redisTransaction.Execute()
+                    let success: bool = redisTransaction.Execute CommandFlags.None
+                    if not success then
+                        let orderId = order.Id.ToString()
+                        failwithf "Something wrong happened with the transaction, had to be rolledback; OrderID: %s"
+                                  orderId
                     redisTransaction.WaitAll()
                 )
