@@ -42,8 +42,6 @@ namespace FsharpExchange.Tests
 
             foreach (var exchange in CreateExchangesOfDifferentTypes())
             {
-                var orderBook = exchange[market];
-
                 var someOrder =
                     new LimitOrder(new OrderInfo(Guid.NewGuid(), someSide, quantity),
                                    price);
