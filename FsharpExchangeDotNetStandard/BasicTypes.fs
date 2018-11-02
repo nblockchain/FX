@@ -77,6 +77,7 @@ type ITransaction =
 type IOrderBookSideFragment =
     abstract member Analyze: unit -> ListAnalysis<LimitOrder,IOrderBookSideFragment>
     abstract member Insert: LimitOrder -> (LimitOrder -> LimitOrder -> bool) -> OrderBookSideFragmentModification
+    abstract member Remove: Guid -> Option<OrderBookSideFragmentModification>
     abstract member Tip: Option<LimitOrder>
     abstract member Tail: Option<IOrderBookSideFragment>
     abstract member Count: unit -> int

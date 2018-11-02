@@ -172,6 +172,15 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
             else
                 FindNextElementAfterXInListY x tail
 
+    let rec RemoveFirstElementXFromListY x y =
+        match y with
+        | [] -> failwith "x not found"
+        | head::tail ->
+            if (head = x) then
+                tail
+            else
+                head::RemoveFirstElementXFromListY x tail
+
     member this.SyncAsRoot (transaction: StackExchange.Redis.ITransaction) =
         match tip with
         | Pointer tipGuid ->
@@ -190,6 +199,53 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
         | Empty ->
             OrderRedisManager.UnsetTipOrderGuid transaction orderBookSide
             OrderRedisManager.SetTail transaction List.empty orderBookSide
+
+    member this.OrderExists (orderId): bool =
+        let self = this :> IOrderBookSideFragment
+        match self.Tip with
+        | None ->
+            false
+        | Some limitOrder ->
+            if limitOrder.OrderInfo.Id = orderId then
+                true
+            else
+                match self.Tail with
+                | None ->
+                    false
+                | Some tail ->
+                    let castedTail = tail :?> RedisOrderBookSideFragment
+                    castedTail.OrderExists orderId
+
+    member this.RemoveOrder (orderId): OrderBookSideFragmentModification =
+        (fun transaction ->
+            match tip with
+            | Empty ->
+                failwithf "Could not find order %s" (orderId.ToString())
+            | Pointer _ ->
+                failwith "Assertion failed: remove order operation should only happen in Root fragments"
+            | Root ->
+                let maybeTipOrder = OrderRedisManager.GetTipOrder orderBookSide
+                match maybeTipOrder with
+                | None ->
+                    failwithf "Could not find order %s" (orderId.ToString())
+                | Some tipOrder ->
+
+                    let redisTransaction = (transaction :?> Transaction).RedisTransaction
+
+                    let redisTail = OrderRedisManager.GetTail orderBookSide
+                    if tipOrder.OrderInfo.Id = orderId then
+                        match redisTail with
+                        | [] ->
+                            OrderRedisManager.UnsetTipOrderGuid redisTransaction orderBookSide
+                        | headOfTail::tailOfTail ->
+                            OrderRedisManager.SetTipOrderGuid redisTransaction orderBookSide (headOfTail.ToString())
+                            OrderRedisManager.SetTail redisTransaction tailOfTail orderBookSide
+                    else
+                        let newTailGuids = RemoveFirstElementXFromListY (orderId.ToString()) redisTail
+                        OrderRedisManager.SetTail redisTransaction newTailGuids orderBookSide
+                    this :> IOrderBookSideFragment
+        )
+
 
     interface IOrderBookSideFragment with
         member this.Analyze () =
@@ -397,6 +453,12 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
                                        :> IOrderBookSideFragment
                 )
 
+        member this.Remove (orderId: Guid): Option<OrderBookSideFragmentModification> =
+            if this.OrderExists orderId then
+                this.RemoveOrder orderId |> Some
+            else
+                None
+
         member this.Count () =
             match tip with
             | Empty -> 0
@@ -427,11 +489,54 @@ type MarketStore() =
         | Some(orderBookFound) ->
             orderBookFound
 
+    let ExecuteRedisTransaction (redisTransaction: ITransaction) =
+        let success: bool = redisTransaction.Execute CommandFlags.None
+        if not success then
+            false
+        else
+            redisTransaction.WaitAll()
+            true
+
+    let NewTransaction () =
+        let redisTransaction = OrderRedisManager.CreateTransaction()
+        let transaction = Transaction(redisTransaction) :> FsharpExchangeDotNetStandard.ITransaction
+        transaction,redisTransaction
+
+    let rec CancelOrder (orderId: Guid) (allMarkets: List<Market*OrderBook>): bool =
+        match allMarkets with
+        | [] ->
+            failwith "Order not found in any market"
+        | (headMarket,headOrderBook)::tail ->
+            match headOrderBook.[Side.Ask].Remove orderId with
+            | None ->
+                match headOrderBook.[Side.Bid].Remove orderId with
+                | None ->
+                    CancelOrder orderId tail
+                | Some modificationFunc ->
+                    let transaction,redisTransaction = NewTransaction ()
+                    modificationFunc transaction |> ignore
+                    ExecuteRedisTransaction redisTransaction
+            | Some modificationFunc ->
+                let transaction,redisTransaction = NewTransaction ()
+                modificationFunc transaction |> ignore
+                ExecuteRedisTransaction redisTransaction
+
     interface IMarketStore with
 
         member this.GetOrderBook (market: Market): OrderBook =
             lock lockObject (fun _ ->
                 GetOrderBookInternal market
+            )
+
+        member this.CancelOrder (orderId: Guid) =
+            lock lockObject (fun _ ->
+                match CancelOrder orderId (Map.toList markets) with
+                | false ->
+                    let orderId = orderId.ToString()
+                    failwithf "Something wrong happened with the transaction, had to be rolledback; OrderID to cancel: %s"
+                              orderId
+                | _ ->
+                    ()
             )
 
         member this.ReceiveOrder (order: OrderRequest) (market: Market) =
@@ -441,19 +546,16 @@ type MarketStore() =
                     if OrderRedisManager.OrderExists order.Id then
                         raise OrderAlreadyExists
 
-                    let redisTransaction = OrderRedisManager.CreateTransaction()
-                    let transaction = Transaction(redisTransaction)
-                                          :> FsharpExchangeDotNetStandard.ITransaction
+                    let transaction,redisTransaction = NewTransaction ()
 
                     let newOrderBook = (orderBook.InsertOrder order) transaction
                     let bidSide = newOrderBook.[Side.Bid] :?> RedisOrderBookSideFragment
                     let askSide = newOrderBook.[Side.Ask] :?> RedisOrderBookSideFragment
                     bidSide.SyncAsRoot redisTransaction
                     askSide.SyncAsRoot redisTransaction
-                    let success: bool = redisTransaction.Execute CommandFlags.None
+                    let success: bool = ExecuteRedisTransaction redisTransaction
                     if not success then
                         let orderId = order.Id.ToString()
-                        failwithf "Something wrong happened with the transaction, had to be rolledback; OrderID: %s"
+                        failwithf "Something wrong happened with the transaction, had to be rolledback; OrderID to be added: %s"
                                   orderId
-                    redisTransaction.WaitAll()
                 )

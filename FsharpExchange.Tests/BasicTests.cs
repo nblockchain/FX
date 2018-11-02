@@ -67,5 +67,28 @@ namespace FsharpExchange.Tests
                 new LimitOrderRequest(limitOrder, LimitOrderRequestType.Normal);
             exchange.SendLimitOrder(nonMakerOnlyLimitOrder, market);
         }
+
+        [Test]
+        public void Cancelling_order_works()
+        {
+            var quantity = 1;
+            var price = 10000;
+            var someSide = Side.Bid;
+            var market = new Market(Currency.BTC, Currency.USD);
+
+            foreach (var exchange in CreateExchangesOfDifferentTypes())
+            {
+                var someOrder =
+                    new LimitOrder(new OrderInfo(Guid.NewGuid(), someSide, quantity),
+                                   price);
+                SendOrder(exchange, someOrder, market);
+
+                Assert.That(exchange[market][someSide].Count(), Is.EqualTo(1));
+
+                exchange.CancelLimitOrder(someOrder.OrderInfo.Id);
+
+                Assert.That(exchange[market][someSide].Count(), Is.EqualTo(0));
+            }
+        }
     }
 }

@@ -5,6 +5,8 @@
 
 namespace FsharpExchangeDotNetStandard
 
+open System
+
 type public Exchange(persistenceType: Persistence) =
 
     let marketStore =
@@ -21,4 +23,9 @@ type public Exchange(persistenceType: Persistence) =
 
     member __.SendLimitOrder (order: LimitOrderRequest, market: Market) =
         marketStore.ReceiveOrder (OrderRequest.Limit(order)) market
+
+    // TODO: should receive market as a parameter as well, to improve performance (no need to loop through all
+    //       markets to find the order to be cancelled
+    member __.CancelLimitOrder (orderId: Guid) =
+        marketStore.CancelOrder (orderId: Guid)
 

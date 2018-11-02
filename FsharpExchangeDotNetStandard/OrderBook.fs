@@ -5,6 +5,8 @@
 
 namespace FsharpExchangeDotNetStandard
 
+open System
+
 type MatchLeftOver =
     | NoMatch
     | UnmatchedLimitOrderLeftOverAfterPartialMatch of LimitOrder
@@ -152,4 +154,5 @@ and OrderBookModification =
 type IMarketStore =
     abstract member GetOrderBook: Market -> OrderBook
     abstract member ReceiveOrder: OrderRequest -> Market -> unit
+    abstract member CancelOrder: Guid -> unit
 
