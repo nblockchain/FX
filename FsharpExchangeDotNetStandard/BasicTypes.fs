@@ -74,6 +74,10 @@ type ListAnalysis<'TElement,'TContainer> =
 type ITransaction =
     interface end
 
+type Match =
+    | Full
+    | Partial of decimal
+
 type IOrderBookSideFragment =
     abstract member Analyze: unit -> ListAnalysis<LimitOrder,IOrderBookSideFragment>
     abstract member Insert: LimitOrder -> (LimitOrder -> LimitOrder -> bool) -> OrderBookSideFragmentModification

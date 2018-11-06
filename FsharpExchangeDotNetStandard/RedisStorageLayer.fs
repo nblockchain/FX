@@ -365,13 +365,15 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
             OrderRedisManager.InsertOrder limitOrder
             match tip with
             | Root ->
+                let result = this :> IOrderBookSideFragment
+
                 let maybeTipOrder = OrderRedisManager.GetTipOrder orderBookSide
                 match maybeTipOrder with
                 | None ->
                     (fun transaction ->
                         let redisTransaction = (transaction :?> Transaction).RedisTransaction
                         OrderRedisManager.SetTipOrderGuid redisTransaction orderBookSide (limitOrder.OrderInfo.Id.ToString())
-                        this :> IOrderBookSideFragment)
+                        result)
                 | Some tipOrder ->
                     let tailGuids = OrderRedisManager.GetTail orderBookSide
                     if canPrepend limitOrder tipOrder then
@@ -380,7 +382,7 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
                             let redisTransaction = (transaction :?> Transaction).RedisTransaction
                             OrderRedisManager.SetTail redisTransaction newTailGuids orderBookSide
                             OrderRedisManager.SetTipOrderGuid redisTransaction orderBookSide (limitOrder.OrderInfo.Id.ToString())
-                            this :> IOrderBookSideFragment
+                            result
                         )
                     else
                         match tailGuids with
@@ -390,7 +392,7 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
                                 OrderRedisManager.SetTail redisTransaction
                                                           (limitOrder.OrderInfo.Id.ToString()::List.empty)
                                                           orderBookSide
-                                this :> IOrderBookSideFragment
+                                result
                             )
                         | head::_ ->
                             (fun transaction ->
@@ -399,7 +401,7 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
                                                    :> IOrderBookSideFragment
                                 let subInsertFunc = fragment.Insert limitOrder canPrepend
                                 subInsertFunc transaction |> ignore
-                                this :> IOrderBookSideFragment
+                                result
                             )
 
 
@@ -422,8 +424,10 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
                             (fun transaction ->
                                 let redisTransaction = (transaction :?> Transaction).RedisTransaction
                                 OrderRedisManager.SetTail redisTransaction newTailGuids orderBookSide
-                                RedisOrderBookSideFragment(orderBookSide, Pointer limitOrder.OrderInfo.Id)
-                                    :> IOrderBookSideFragment
+                                let newOrderBookSide =
+                                    RedisOrderBookSideFragment(orderBookSide, Pointer limitOrder.OrderInfo.Id)
+                                        :> IOrderBookSideFragment
+                                newOrderBookSide
                             )
                         else
                             let tailOrderGuidStr = (tailOrder.OrderInfo.Id.ToString())
@@ -449,8 +453,10 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
 
             | Empty ->
                 (fun _ ->
-                    RedisOrderBookSideFragment(orderBookSide, Pointer limitOrder.OrderInfo.Id)
+                    let newOrderBookSide =
+                        RedisOrderBookSideFragment(orderBookSide, Pointer limitOrder.OrderInfo.Id)
                                        :> IOrderBookSideFragment
+                    newOrderBookSide
                 )
 
         member this.Remove (orderId: Guid): Option<OrderBookSideFragmentModification> =
@@ -548,7 +554,7 @@ type MarketStore() =
 
                     let transaction,redisTransaction = NewTransaction ()
 
-                    let newOrderBook = (orderBook.InsertOrder order) transaction
+                    let newOrderBook,maybeMatch = (orderBook.InsertOrder order) transaction
                     let bidSide = newOrderBook.[Side.Bid] :?> RedisOrderBookSideFragment
                     let askSide = newOrderBook.[Side.Ask] :?> RedisOrderBookSideFragment
                     bidSide.SyncAsRoot redisTransaction
@@ -558,4 +564,5 @@ type MarketStore() =
                         let orderId = order.Id.ToString()
                         failwithf "Something wrong happened with the transaction, had to be rolledback; OrderID to be added: %s"
                                   orderId
+                    maybeMatch
                 )

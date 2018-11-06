@@ -89,7 +89,8 @@ type MarketStore() =
         match orderBookSide.Remove orderId with
         | None -> None
         | Some modificationFunc ->
-            modificationFunc (FakeTransaction():>ITransaction) |> Some
+            let newOrderBookSide = modificationFunc (FakeTransaction():>ITransaction)
+            newOrderBookSide |> Some
 
     let rec CancelOrder (orderId: Guid) (allMarkets: List<Market*OrderBook>) =
         match allMarkets with
@@ -137,6 +138,7 @@ type MarketStore() =
                     let askSide = orderBook.[Side.Ask] :?> MemoryOrderBookSideFragment
                     if askSide.OrderExists order.Id || bidSide.OrderExists order.Id then
                         raise OrderAlreadyExists
-                    let newOrderBook = (orderBook.InsertOrder order) (FakeTransaction():>ITransaction)
+                    let newOrderBook,maybeMatch = (orderBook.InsertOrder order) (FakeTransaction():>ITransaction)
                     markets <- markets.Add(market, newOrderBook)
+                    maybeMatch
                 )

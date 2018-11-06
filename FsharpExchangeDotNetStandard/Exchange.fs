@@ -18,10 +18,10 @@ type public Exchange(persistenceType: Persistence) =
         with get (market: Market): OrderBook =
             marketStore.GetOrderBook market
 
-    member __.SendMarketOrder (order: OrderInfo, market: Market) =
-        marketStore.ReceiveOrder (OrderRequest.Market(order)) market
+    member __.SendMarketOrder (order: OrderInfo, market: Market): unit =
+        marketStore.ReceiveOrder (OrderRequest.Market(order)) market |> ignore
 
-    member __.SendLimitOrder (order: LimitOrderRequest, market: Market) =
+    member __.SendLimitOrder (order: LimitOrderRequest, market: Market): Option<Match> =
         marketStore.ReceiveOrder (OrderRequest.Limit(order)) market
 
     // TODO: should receive market as a parameter as well, to improve performance (no need to loop through all
