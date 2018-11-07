@@ -47,6 +47,9 @@ module Middleware =
 
                 // TODO: make async
                 exchange.SendLimitOrder(limitOrderReq, market)
+
+                    // TODO: return match type as result of HTTP request
+                    |> ignore
                 ()
             }
 
