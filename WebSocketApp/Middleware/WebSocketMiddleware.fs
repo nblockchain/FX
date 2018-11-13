@@ -65,6 +65,14 @@ module Middleware =
                 exchange.SendMarketOrder(orderInfo, market)
                 ()
             }
+
+    let sendOrderCancellationToEngine =
+        fun (cancelOrderRequest: WebSocketApp.Models.CancelOrderRequest) ->
+            task {
+                // TODO: make async
+                exchange.CancelLimitOrder cancelOrderRequest.OrderId
+                ()
+            }
     
     let sendMessageToSockets =
         fun message ->
