@@ -28,7 +28,7 @@ let indexHandler (name : string) =
     let model     = { Text = greetings }
     razorHtmlView "Index" model
 
-let loadioHandler () =
+let loadioHandler (name: string) =
     let model     = { Text = "loaderio-113fb6f3a83b21f7a130078a2b03a8fa" }
     razorHtmlView "Index" model
 
@@ -70,7 +70,7 @@ let webApp =
         GET >=>
             choose [
                 route "/" >=> indexHandler "world"
-                route "/loaderio-113fb6f3a83b21f7a130078a2b03a8fa" >=> loadioHandler
+                route "/loaderio-113fb6f3a83b21f7a130078a2b03a8fa" >=> loadioHandler ""
                 routef "/hello/%s" indexHandler
             ]
         POST >=>
