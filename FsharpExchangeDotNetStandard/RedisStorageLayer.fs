@@ -52,6 +52,9 @@ module OrderRedisManager =
     let redis = ConnectionMultiplexer.Connect redisHostAddress
     let db = redis.GetDatabase()
 
+    let CreateTransaction() =
+        db.CreateTransaction()
+
     let InsertOrder (limitOrder: LimitOrder): unit =
         let serializedOrder = JsonConvert.SerializeObject limitOrder
         let success = db.StringSet(RedisKey.op_Implicit (limitOrder.OrderInfo.Id.ToString()),
@@ -66,19 +69,20 @@ module OrderRedisManager =
         else
             tipGuidResult.ToString() |> Some
 
-    let SetTipOrderGuid (orderBookSide: OrderBookSide) (guidStr: string): unit =
+    let SetTipOrderGuid (transaction: StackExchange.Redis.ITransaction)
+                        (orderBookSide: OrderBookSide)
+                        (guidStr: string)
+                            : unit =
         if guidStr.Contains " " then
             invalidArg guidStr "guids should not contain spaces"
-        let success = db.StringSet(RedisKey.op_Implicit orderBookSide.TipQuery,
-                                   RedisValue.op_Implicit guidStr)
-        if not success then
-            failwith "Redis set failed, something wrong must be going on"
+        transaction.StringSetAsync (RedisKey.op_Implicit orderBookSide.TipQuery,
+                                    RedisValue.op_Implicit guidStr)
+            |> ignore
 
-    let UnsetTipOrderGuid (orderBookSide: OrderBookSide): unit =
-        let success = db.StringSet(RedisKey.op_Implicit orderBookSide.TipQuery,
+    let UnsetTipOrderGuid (transaction: StackExchange.Redis.ITransaction) (orderBookSide: OrderBookSide): unit =
+        transaction.StringSetAsync(RedisKey.op_Implicit orderBookSide.TipQuery,
                                    RedisValue.op_Implicit String.Empty)
-        if not success then
-            failwith "Redis set failed, something wrong must be going on"
+            |> ignore
 
     let GetTipOrder (orderBookSide: OrderBookSide): Option<LimitOrder> =
         let maybeTipOrderGuid = GetTipOrderGuid orderBookSide
@@ -123,12 +127,18 @@ module OrderRedisManager =
         else
             JsonConvert.DeserializeObject<List<string>> (tail.ToString())
 
-    let SetTail (limitOrderGuids: List<string>) (orderBookSide: OrderBookSide): unit =
+    let SetTail (transaction: StackExchange.Redis.ITransaction)
+                (limitOrderGuids: List<string>)
+                (orderBookSide: OrderBookSide)
+                    : unit =
         let serializedGuids = JsonConvert.SerializeObject limitOrderGuids
-        let success = db.StringSet(RedisKey.op_Implicit orderBookSide.TailQuery,
+        transaction.StringSetAsync(RedisKey.op_Implicit orderBookSide.TailQuery,
                                    RedisValue.op_Implicit serializedGuids)
-        if not success then
-            failwith "Redis set(nonTip) failed, something wrong must be going on"
+            |> ignore
+
+type internal Transaction(redisTransaction: StackExchange.Redis.ITransaction) =
+    member this.RedisTransaction = redisTransaction
+    interface FsharpExchangeDotNetStandard.ITransaction
 
 type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) =
 
@@ -162,7 +172,16 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
             else
                 FindNextElementAfterXInListY x tail
 
-    member this.SyncAsRoot () =
+    let rec RemoveFirstElementXFromListY x y =
+        match y with
+        | [] -> failwith "x not found"
+        | head::tail ->
+            if (head = x) then
+                tail
+            else
+                head::RemoveFirstElementXFromListY x tail
+
+    member this.SyncAsRoot (transaction: StackExchange.Redis.ITransaction) =
         match tip with
         | Pointer tipGuid ->
             let tipGuidStr = tipGuid.ToString()
@@ -173,13 +192,60 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
                  | Some subTail -> subTail
 
             // TODO: do the two above in one batch?
-            OrderRedisManager.SetTipOrderGuid orderBookSide tipGuidStr
-            OrderRedisManager.SetTail newTail orderBookSide
+            OrderRedisManager.SetTipOrderGuid transaction orderBookSide tipGuidStr
+            OrderRedisManager.SetTail transaction newTail orderBookSide
         | Root ->
             ()
         | Empty ->
-            OrderRedisManager.UnsetTipOrderGuid orderBookSide
-            OrderRedisManager.SetTail List.empty orderBookSide
+            OrderRedisManager.UnsetTipOrderGuid transaction orderBookSide
+            OrderRedisManager.SetTail transaction List.empty orderBookSide
+
+    member this.OrderExists (orderId): bool =
+        let self = this :> IOrderBookSideFragment
+        match self.Tip with
+        | None ->
+            false
+        | Some limitOrder ->
+            if limitOrder.OrderInfo.Id = orderId then
+                true
+            else
+                match self.Tail with
+                | None ->
+                    false
+                | Some tail ->
+                    let castedTail = tail :?> RedisOrderBookSideFragment
+                    castedTail.OrderExists orderId
+
+    member this.RemoveOrder (orderId): OrderBookSideFragmentModification =
+        (fun transaction ->
+            match tip with
+            | Empty ->
+                failwithf "Could not find order %s" (orderId.ToString())
+            | Pointer _ ->
+                failwith "Assertion failed: remove order operation should only happen in Root fragments"
+            | Root ->
+                let maybeTipOrder = OrderRedisManager.GetTipOrder orderBookSide
+                match maybeTipOrder with
+                | None ->
+                    failwithf "Could not find order %s" (orderId.ToString())
+                | Some tipOrder ->
+
+                    let redisTransaction = (transaction :?> Transaction).RedisTransaction
+
+                    let redisTail = OrderRedisManager.GetTail orderBookSide
+                    if tipOrder.OrderInfo.Id = orderId then
+                        match redisTail with
+                        | [] ->
+                            OrderRedisManager.UnsetTipOrderGuid redisTransaction orderBookSide
+                        | headOfTail::tailOfTail ->
+                            OrderRedisManager.SetTipOrderGuid redisTransaction orderBookSide (headOfTail.ToString())
+                            OrderRedisManager.SetTail redisTransaction tailOfTail orderBookSide
+                    else
+                        let newTailGuids = RemoveFirstElementXFromListY (orderId.ToString()) redisTail
+                        OrderRedisManager.SetTail redisTransaction newTailGuids orderBookSide
+                    this :> IOrderBookSideFragment
+        )
+
 
     interface IOrderBookSideFragment with
         member this.Analyze () =
@@ -295,34 +361,50 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
                             :> IOrderBookSideFragment |> Some
 
         member this.Insert (limitOrder: LimitOrder) (canPrepend: LimitOrder -> LimitOrder -> bool)
-                               : IOrderBookSideFragment =
+                               : OrderBookSideFragmentModification =
             OrderRedisManager.InsertOrder limitOrder
             match tip with
             | Root ->
+                let result = this :> IOrderBookSideFragment
+
                 let maybeTipOrder = OrderRedisManager.GetTipOrder orderBookSide
                 match maybeTipOrder with
                 | None ->
-                    OrderRedisManager.SetTipOrderGuid orderBookSide (limitOrder.OrderInfo.Id.ToString())
-                    this :> IOrderBookSideFragment
+                    (fun transaction ->
+                        let redisTransaction = (transaction :?> Transaction).RedisTransaction
+                        OrderRedisManager.SetTipOrderGuid redisTransaction orderBookSide (limitOrder.OrderInfo.Id.ToString())
+                        result)
                 | Some tipOrder ->
                     let tailGuids = OrderRedisManager.GetTail orderBookSide
                     if canPrepend limitOrder tipOrder then
-                        let newTailGuids = tipOrder.OrderInfo.Id.ToString()::tailGuids
-                        OrderRedisManager.SetTail newTailGuids orderBookSide
-                        OrderRedisManager.SetTipOrderGuid orderBookSide (limitOrder.OrderInfo.Id.ToString())
-                        this :> IOrderBookSideFragment
+                        (fun transaction ->
+                            let newTailGuids = tipOrder.OrderInfo.Id.ToString()::tailGuids
+                            let redisTransaction = (transaction :?> Transaction).RedisTransaction
+                            OrderRedisManager.SetTail redisTransaction newTailGuids orderBookSide
+                            OrderRedisManager.SetTipOrderGuid redisTransaction orderBookSide (limitOrder.OrderInfo.Id.ToString())
+                            result
+                        )
                     else
                         match tailGuids with
                         | [] ->
-                            OrderRedisManager.SetTail (limitOrder.OrderInfo.Id.ToString()::List.empty) orderBookSide
+                            (fun transaction ->
+                                let redisTransaction = (transaction :?> Transaction).RedisTransaction
+                                OrderRedisManager.SetTail redisTransaction
+                                                          (limitOrder.OrderInfo.Id.ToString()::List.empty)
+                                                          orderBookSide
+                                result
+                            )
                         | head::_ ->
-                            let headGuid = head |> Guid
-                            let fragment = RedisOrderBookSideFragment(orderBookSide, Pointer headGuid)
-                                               :> IOrderBookSideFragment
-                            fragment.Insert limitOrder canPrepend
-                                |> ignore
+                            (fun transaction ->
+                                let headGuid = head |> Guid
+                                let fragment = RedisOrderBookSideFragment(orderBookSide, Pointer headGuid)
+                                                   :> IOrderBookSideFragment
+                                let subInsertFunc = fragment.Insert limitOrder canPrepend
+                                subInsertFunc transaction |> ignore
+                                result
+                            )
 
-                        this :> IOrderBookSideFragment
+
             | Pointer tailOrderGuid ->
                 let tailOrderGuidStr = tailOrderGuid.ToString()
                 match OrderRedisManager.GetOrderByGuidString tailOrderGuidStr with
@@ -339,9 +421,14 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
                             let newTailGuids = PrependElementXToListYBeforeElementZ (limitOrder.OrderInfo.Id.ToString())
                                                                                     tailGuids
                                                                                     (tailOrder.OrderInfo.Id.ToString())
-                            OrderRedisManager.SetTail newTailGuids orderBookSide
-                            RedisOrderBookSideFragment(orderBookSide, Pointer limitOrder.OrderInfo.Id)
-                                :> IOrderBookSideFragment
+                            (fun transaction ->
+                                let redisTransaction = (transaction :?> Transaction).RedisTransaction
+                                OrderRedisManager.SetTail redisTransaction newTailGuids orderBookSide
+                                let newOrderBookSide =
+                                    RedisOrderBookSideFragment(orderBookSide, Pointer limitOrder.OrderInfo.Id)
+                                        :> IOrderBookSideFragment
+                                newOrderBookSide
+                            )
                         else
                             let tailOrderGuidStr = (tailOrder.OrderInfo.Id.ToString())
                             let tailGuidsWithNewHead = GetElementsAfterXInListY tailOrderGuidStr
@@ -350,17 +437,33 @@ type RedisOrderBookSideFragment(orderBookSide: OrderBookSide, tip: HeadPointer) 
                             | None ->
                                 failwithf "Assertion failed, no %s found in tail" tailOrderGuidStr
                             | Some [] ->
-                                let newTailGuids = List.append tailGuids (limitOrder.OrderInfo.Id.ToString()::List.empty)
-                                OrderRedisManager.SetTail newTailGuids orderBookSide
-                                this :> IOrderBookSideFragment
+                                (fun transaction ->
+                                    let redisTransaction = (transaction :?> Transaction).RedisTransaction
+                                    let newTailGuids = List.append tailGuids (limitOrder.OrderInfo.Id.ToString()::List.empty)
+                                    OrderRedisManager.SetTail redisTransaction newTailGuids orderBookSide
+                                    this :> IOrderBookSideFragment
+                                )
                             | Some (head::_) ->
-                                let headGuid = head |> Guid
-                                let fragment = RedisOrderBookSideFragment(orderBookSide, Pointer headGuid)
-                                                   :> IOrderBookSideFragment
-                                fragment.Insert limitOrder canPrepend
+                                (fun transaction ->
+                                    let headGuid = head |> Guid
+                                    let fragment = RedisOrderBookSideFragment(orderBookSide, Pointer headGuid)
+                                                       :> IOrderBookSideFragment
+                                    (fragment.Insert limitOrder canPrepend) transaction
+                                )
+
             | Empty ->
-                RedisOrderBookSideFragment(orderBookSide, Pointer limitOrder.OrderInfo.Id)
-                                   :> IOrderBookSideFragment
+                (fun _ ->
+                    let newOrderBookSide =
+                        RedisOrderBookSideFragment(orderBookSide, Pointer limitOrder.OrderInfo.Id)
+                                       :> IOrderBookSideFragment
+                    newOrderBookSide
+                )
+
+        member this.Remove (orderId: Guid): Option<OrderBookSideFragmentModification> =
+            if this.OrderExists orderId then
+                this.RemoveOrder orderId |> Some
+            else
+                None
 
         member this.Count () =
             match tip with
@@ -392,11 +495,54 @@ type MarketStore() =
         | Some(orderBookFound) ->
             orderBookFound
 
+    let ExecuteRedisTransaction (redisTransaction: ITransaction) =
+        let success: bool = redisTransaction.Execute CommandFlags.None
+        if not success then
+            false
+        else
+            redisTransaction.WaitAll()
+            true
+
+    let NewTransaction () =
+        let redisTransaction = OrderRedisManager.CreateTransaction()
+        let transaction = Transaction(redisTransaction) :> FsharpExchangeDotNetStandard.ITransaction
+        transaction,redisTransaction
+
+    let rec CancelOrder (orderId: Guid) (allMarkets: List<Market*OrderBook>): bool =
+        match allMarkets with
+        | [] ->
+            failwith "Order not found in any market"
+        | (headMarket,headOrderBook)::tail ->
+            match headOrderBook.[Side.Ask].Remove orderId with
+            | None ->
+                match headOrderBook.[Side.Bid].Remove orderId with
+                | None ->
+                    CancelOrder orderId tail
+                | Some modificationFunc ->
+                    let transaction,redisTransaction = NewTransaction ()
+                    modificationFunc transaction |> ignore
+                    ExecuteRedisTransaction redisTransaction
+            | Some modificationFunc ->
+                let transaction,redisTransaction = NewTransaction ()
+                modificationFunc transaction |> ignore
+                ExecuteRedisTransaction redisTransaction
+
     interface IMarketStore with
 
         member this.GetOrderBook (market: Market): OrderBook =
             lock lockObject (fun _ ->
                 GetOrderBookInternal market
+            )
+
+        member this.CancelOrder (orderId: Guid) =
+            lock lockObject (fun _ ->
+                match CancelOrder orderId (Map.toList markets) with
+                | false ->
+                    let orderId = orderId.ToString()
+                    failwithf "Something wrong happened with the transaction, had to be rolledback; OrderID to cancel: %s"
+                              orderId
+                | _ ->
+                    ()
             )
 
         member this.ReceiveOrder (order: OrderRequest) (market: Market) =
@@ -405,9 +551,18 @@ type MarketStore() =
                     let orderBook = GetOrderBookInternal market
                     if OrderRedisManager.OrderExists order.Id then
                         raise OrderAlreadyExists
-                    let newOrderBook = orderBook.InsertOrder order
+
+                    let transaction,redisTransaction = NewTransaction ()
+
+                    let newOrderBook,maybeMatch = (orderBook.InsertOrder order) transaction
                     let bidSide = newOrderBook.[Side.Bid] :?> RedisOrderBookSideFragment
                     let askSide = newOrderBook.[Side.Ask] :?> RedisOrderBookSideFragment
-                    bidSide.SyncAsRoot()
-                    askSide.SyncAsRoot()
+                    bidSide.SyncAsRoot redisTransaction
+                    askSide.SyncAsRoot redisTransaction
+                    let success: bool = ExecuteRedisTransaction redisTransaction
+                    if not success then
+                        let orderId = order.Id.ToString()
+                        failwithf "Something wrong happened with the transaction, had to be rolledback; OrderID to be added: %s"
+                                  orderId
+                    maybeMatch
                 )

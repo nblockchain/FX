@@ -28,6 +28,16 @@ type MemoryOrderBookSideFragment(memoryList: List<LimitOrder>) =
             else
                 head::(InsertOrder tail limitOrder canPrepend)
 
+    let rec RemoveOrder (orderId) (lst: List<LimitOrder>)
+                       : List<LimitOrder> =
+        match lst with
+        | [] -> failwithf "Could not find order %s" (orderId.ToString())
+        | head::tail ->
+            if head.OrderInfo.Id = orderId then
+                tail
+            else
+                head::RemoveOrder orderId tail
+
     member __.OrderExists guid =
         memoryList.Any(fun limitOrder -> limitOrder.OrderInfo.Id = guid)
 
@@ -41,10 +51,23 @@ type MemoryOrderBookSideFragment(memoryList: List<LimitOrder>) =
             | [] -> None
             | _::tail -> MemoryOrderBookSideFragment(tail) :> IOrderBookSideFragment |> Some
         member this.Insert (limitOrder: LimitOrder) (canPrepend: LimitOrder -> LimitOrder -> bool)
-                               : IOrderBookSideFragment =
-            MemoryOrderBookSideFragment(InsertOrder memoryList limitOrder canPrepend) :> IOrderBookSideFragment
+                               : OrderBookSideFragmentModification =
+            (fun _ ->
+                MemoryOrderBookSideFragment(InsertOrder memoryList limitOrder canPrepend) :> IOrderBookSideFragment
+            )
+        member this.Remove (orderId: Guid): Option<OrderBookSideFragmentModification> =
+            if this.OrderExists orderId then
+                (fun _ ->
+                    MemoryOrderBookSideFragment(RemoveOrder orderId memoryList) :> IOrderBookSideFragment
+                ) |> Some
+            else
+                None
         member this.Count () =
             memoryList.Length
+
+// fake because in Memory we actually don't need transactions
+type internal FakeTransaction() =
+    interface ITransaction
 
 type MarketStore() =
     let mutable markets: Map<Market, OrderBook> = Map.empty
@@ -61,11 +84,50 @@ type MarketStore() =
         | Some(orderBookFound) ->
             orderBookFound
 
+    let CancelOrderInOrderBookSide (orderId: Guid) (orderBookSide: IOrderBookSideFragment) (market: Market)
+                                       : Option<IOrderBookSideFragment> =
+        match orderBookSide.Remove orderId with
+        | None -> None
+        | Some modificationFunc ->
+            let newOrderBookSide = modificationFunc (FakeTransaction():>ITransaction)
+            newOrderBookSide |> Some
+
+    let rec CancelOrder (orderId: Guid) (allMarkets: List<Market*OrderBook>) =
+        match allMarkets with
+        | [] ->
+            failwith "Order not found in any market"
+        | (headMarket,headOrderBook)::tail ->
+            match headOrderBook.[Side.Ask].Remove orderId with
+            | None ->
+                match headOrderBook.[Side.Bid].Remove orderId with
+                | None ->
+                    CancelOrder orderId tail
+                | Some modificationFunc ->
+                    let newBidOrderBook = modificationFunc (FakeTransaction():>ITransaction)
+                    let newOrderBook = OrderBook(newBidOrderBook,
+                                                 headOrderBook.[Side.Ask],
+                                                 (fun _ -> MemoryOrderBookSideFragment(List.empty)
+                                                           :> IOrderBookSideFragment))
+                    markets <- markets.Add(headMarket, newOrderBook)
+            | Some modificationFunc ->
+                let newAskOrderBook = modificationFunc (FakeTransaction():>ITransaction)
+                let newOrderBook = OrderBook(headOrderBook.[Side.Bid],
+                                             newAskOrderBook,
+                                             (fun _ -> MemoryOrderBookSideFragment(List.empty)
+                                                       :> IOrderBookSideFragment))
+                markets <- markets.Add(headMarket, newOrderBook)
+
     interface IMarketStore with
 
         member this.GetOrderBook (market: Market): OrderBook =
             lock lockObject (fun _ ->
                 GetOrderBookInternal market
+            )
+
+        member __.CancelOrder (orderId: Guid) =
+            lock lockObject (
+                fun _ ->
+                    CancelOrder orderId (Map.toList markets)
             )
 
         member this.ReceiveOrder (order: OrderRequest) (market: Market) =
@@ -76,6 +138,7 @@ type MarketStore() =
                     let askSide = orderBook.[Side.Ask] :?> MemoryOrderBookSideFragment
                     if askSide.OrderExists order.Id || bidSide.OrderExists order.Id then
                         raise OrderAlreadyExists
-                    let newOrderBook = orderBook.InsertOrder order
+                    let newOrderBook,maybeMatch = (orderBook.InsertOrder order) (FakeTransaction():>ITransaction)
                     markets <- markets.Add(market, newOrderBook)
+                    maybeMatch
                 )

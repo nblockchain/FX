@@ -1,5 +1,7 @@
 namespace WebSocketApp.Models
 
+open System
+
 [<CLIMutable>]
 type Message =
     {
@@ -19,4 +21,11 @@ type MarketOrder =
     {
         Side: string;
         Quantity: decimal;
+    }
+
+[<CLIMutable>]
+type CancelOrderRequest =
+    {
+        OrderId: Guid;
+        // TODO: add Market
     }

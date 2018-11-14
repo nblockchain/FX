@@ -47,6 +47,9 @@ module Middleware =
 
                 // TODO: make async
                 exchange.SendLimitOrder(limitOrderReq, market)
+
+                    // TODO: return match type as result of HTTP request
+                    |> ignore
                 ()
             }
 
@@ -60,6 +63,14 @@ module Middleware =
 
                 // TODO: make async
                 exchange.SendMarketOrder(orderInfo, market)
+                ()
+            }
+
+    let sendOrderCancellationToEngine =
+        fun (cancelOrderRequest: WebSocketApp.Models.CancelOrderRequest) ->
+            task {
+                // TODO: make async
+                exchange.CancelLimitOrder cancelOrderRequest.OrderId
                 ()
             }
     

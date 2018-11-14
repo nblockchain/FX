@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.FSharp.Core;
 
 using FsharpExchangeDotNetStandard;
 
@@ -16,13 +17,13 @@ namespace FsharpExchange.Tests
     [TestFixture]
     public class LimitOrders
     {
-        internal static void SendOrder(Exchange exchange,
+        internal static FSharpOption<Match> SendOrder(Exchange exchange,
                                        LimitOrder limitOrder,
                                        Market market)
         {
             var nonMakerOnlyLimitOrder =
                 new LimitOrderRequest(limitOrder, LimitOrderRequestType.Normal);
-            exchange.SendLimitOrder(nonMakerOnlyLimitOrder, market);
+            return exchange.SendLimitOrder(nonMakerOnlyLimitOrder, market);
         }
 
         internal static IEnumerable<Exchange>
@@ -41,7 +42,7 @@ namespace FsharpExchange.Tests
                 Assert.That(btcUsdOrderBook[Side.Ask].Count(), Is.EqualTo(0),
                             "initial exchange state should be zero orders (sell)");
 
-                SendOrder(exchange, limitOrder, market);
+                var maybeMatch = SendOrder(exchange, limitOrder, market);
                 var btcUsdOrderBookAgain = exchange[market];
                 Assert.That(btcUsdOrderBookAgain[side].Count(), Is.EqualTo(1));
                 var uniqueLimitOrder = btcUsdOrderBookAgain[side].Tip.Value;
@@ -52,6 +53,8 @@ namespace FsharpExchange.Tests
                             Is.EqualTo(limitOrder.OrderInfo.Quantity));
 
                 Assert.That(btcUsdOrderBookAgain[side.Other()].Count(), Is.EqualTo(0));
+
+                Assert.That(maybeMatch, Is.Null);
 
                 yield return exchange;
             }
@@ -131,17 +134,20 @@ namespace FsharpExchange.Tests
                 var firstLimitOrder =
                     new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity),
                                    price);
-                SendOrder(exchange, firstLimitOrder, market);
+                var maybeMatch = SendOrder(exchange, firstLimitOrder, market);
+                Assert.That(maybeMatch, Is.Null);
 
                 var secondLimitOrder =
                     new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity),
                                    secondAndThirdPrice);
-                SendOrder(exchange, secondLimitOrder, market);
+                maybeMatch = SendOrder(exchange, secondLimitOrder, market);
+                Assert.That(maybeMatch, Is.Null);
 
                 var thirdLimitOrder =
                     new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity),
                                    secondAndThirdPrice);
-                SendOrder(exchange, thirdLimitOrder, market);
+                maybeMatch = SendOrder(exchange, thirdLimitOrder, market);
+                Assert.That(maybeMatch, Is.Null);
 
                 var allLimitOrdersSent = new List<LimitOrder> {
                     firstLimitOrder, secondLimitOrder, thirdLimitOrder
@@ -194,13 +200,15 @@ namespace FsharpExchange.Tests
                 var firstLimitOrder =
                     new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity),
                                    price);
-                SendOrder(exchange, firstLimitOrder, market);
+                var maybeMatch = SendOrder(exchange, firstLimitOrder, market);
+                Assert.That(maybeMatch, Is.Null);
 
                 var secondLimitOrder =
                     new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(),
                                                  quantity),
                                    opposingPrice);
-                SendOrder(exchange, secondLimitOrder, market);
+                maybeMatch = SendOrder(exchange, secondLimitOrder, market);
+                Assert.That(maybeMatch, Is.Null);
 
                 var orderBookAgain = exchange[market];
 
@@ -246,16 +254,22 @@ namespace FsharpExchange.Tests
                 var firstLimitOrder =
                     new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity),
                                    price);
-                SendOrder(exchange, firstLimitOrder, market);
+                var maybeMatch = SendOrder(exchange, firstLimitOrder, market);
+                Assert.That(maybeMatch, Is.Null);
 
                 var secondLimitMatchingOrder =
                     new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(),
                                                  quantity), price);
-                SendOrder(exchange, secondLimitMatchingOrder, market);
+                maybeMatch = SendOrder(exchange,
+                                       secondLimitMatchingOrder,
+                                       market);
 
                 var orderBookAgain = exchange[market];
                 Assert.That(orderBookAgain[side].Count(), Is.EqualTo(0));
                 Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
+
+                Assert.That(maybeMatch, Is.Not.Null);
+                Assert.That(maybeMatch.Value.IsFull);
             }
         }
 
@@ -286,12 +300,15 @@ namespace FsharpExchange.Tests
                 var secondLimitOrder =
                     new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(), quantity),
                                    opposingPrice);
-                SendOrder(exchange, secondLimitOrder, market);
+                var maybeMatch = SendOrder(exchange, secondLimitOrder, market);
 
                 var orderBookAgain = exchange[market];
 
                 Assert.That(orderBookAgain[side].Count(), Is.EqualTo(0));
                 Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
+
+                Assert.That(maybeMatch, Is.Not.Null);
+                Assert.That(maybeMatch.Value.IsFull);
             }
         }
 
@@ -319,13 +336,16 @@ namespace FsharpExchange.Tests
                     new LimitOrder(new OrderInfo(Guid.NewGuid(), side,
                                                  quantityOfFirstOrder),
                                    price);
-                SendOrder(exchange, firstLimitOrder, market);
+                var maybeMatch = SendOrder(exchange, firstLimitOrder, market);
+                Assert.That(maybeMatch, Is.Null);
 
                 var secondLimitMatchingOrder =
                     new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(),
                                                  quantityOfSecondOrder),
                                    price);
-                SendOrder(exchange, secondLimitMatchingOrder, market);
+                maybeMatch = SendOrder(exchange,
+                                       secondLimitMatchingOrder,
+                                       market);
 
                 var orderBookAgain = exchange[market];
                 Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
@@ -337,6 +357,9 @@ namespace FsharpExchange.Tests
                             Is.EqualTo(price));
                 Assert.That(leftOverLimitOrder.OrderInfo.Quantity,
                     Is.EqualTo(quantityOfFirstOrder - quantityOfSecondOrder));
+
+                Assert.That(maybeMatch, Is.Not.Null);
+                Assert.That(maybeMatch.Value.IsFull, Is.True);
             }
         }
 
@@ -363,23 +386,34 @@ namespace FsharpExchange.Tests
                     new LimitOrder(new OrderInfo(Guid.NewGuid(), side,
                                                  quantityOfEachOfTheSittingOrders),
                                    price);
-                SendOrder(exchange, firstLimitOrder, market);
+                var maybeMatch = SendOrder(exchange, firstLimitOrder, market);
+
+                Assert.That(maybeMatch, Is.Null);
 
                 var secondLimitMatchingOrder =
                     new LimitOrder(new OrderInfo(Guid.NewGuid(), side,
                                                  quantityOfEachOfTheSittingOrders),
                                    price);
-                SendOrder(exchange, secondLimitMatchingOrder, market);
+                maybeMatch = SendOrder(exchange,
+                                       secondLimitMatchingOrder,
+                                       market);
+
+                Assert.That(maybeMatch, Is.Null);
 
                 var incomingLimitMatchingOrder =
                     new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(),
                                                  quantityOfIncomingOrder),
                                    price);
-                SendOrder(exchange, incomingLimitMatchingOrder, market);
+                maybeMatch = SendOrder(exchange,
+                                       incomingLimitMatchingOrder,
+                                       market);
 
                 var orderBookAgain = exchange[market];
                 Assert.That(orderBookAgain[side.Other()].Count(), Is.EqualTo(0));
                 Assert.That(orderBookAgain[side].Count(), Is.EqualTo(0));
+
+                Assert.That(maybeMatch, Is.Not.Null);
+                Assert.That(maybeMatch.Value.IsFull);
             }
         }
 
@@ -403,18 +437,22 @@ namespace FsharpExchange.Tests
                 var tipLimitOrder =
                 new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity),
                                tipPrice);
-                SendOrder(exchange, tipLimitOrder, market);
+                var maybeMatch = SendOrder(exchange, tipLimitOrder, market);
+                Assert.That(maybeMatch, Is.Null);
 
                 var nonTipLimitOrder =
                     new LimitOrder(new OrderInfo(Guid.NewGuid(), side, quantity),
                                    notTipPrice);
-                SendOrder(exchange, nonTipLimitOrder, market);
+                maybeMatch = SendOrder(exchange, nonTipLimitOrder, market);
+                Assert.That(maybeMatch, Is.Null);
 
                 var incomingLimitMatchingOrder =
                     new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(),
                                                  quantity),
                                    notTipPrice);
-                SendOrder(exchange, incomingLimitMatchingOrder, market);
+                maybeMatch = SendOrder(exchange,
+                                       incomingLimitMatchingOrder,
+                                       market);
 
                 var orderBook = exchange[market];
 
@@ -428,6 +466,8 @@ namespace FsharpExchange.Tests
                             Is.EqualTo(quantity));
                 Assert.That(leftOverLimitOrder.Price,
                             Is.EqualTo(notTipPrice));
+                Assert.That(maybeMatch, Is.Not.Null);
+                Assert.That(maybeMatch.Value.IsFull, Is.True);
             }
         }
 
@@ -454,13 +494,17 @@ namespace FsharpExchange.Tests
                     new LimitOrder(new OrderInfo(Guid.NewGuid(), side,
                                                  quantityOfThePreviouslySittingOrder),
                                    price);
-                SendOrder(exchange, firstLimitOrder, market);
+                var maybeMatch = SendOrder(exchange, firstLimitOrder, market);
+                Assert.That(maybeMatch, Is.Null);
 
                 var incomingLimitMatchingOrder =
                     new LimitOrder(new OrderInfo(Guid.NewGuid(), side.Other(),
                                                  quantityOfIncomingOrder),
                                    price);
-                SendOrder(exchange, incomingLimitMatchingOrder, market);
+                maybeMatch = SendOrder(exchange,
+                                       incomingLimitMatchingOrder,
+                                       market);
+                Assert.That(maybeMatch, Is.Not.Null);
 
                 var orderBookAgain = exchange[market];
                 Assert.That(orderBookAgain[side].Count(), Is.EqualTo(0));
@@ -473,6 +517,11 @@ namespace FsharpExchange.Tests
                             Is.EqualTo(price));
                 Assert.That(leftOverLimitOrder.OrderInfo.Quantity,
                     Is.EqualTo(quantityOfIncomingOrder - quantityOfThePreviouslySittingOrder));
+
+                Assert.That(maybeMatch.Value.IsPartial, Is.True);
+                var amount = ((Match.Partial)maybeMatch.Value).Item;
+                Assert.That(amount,
+                            Is.EqualTo(quantityOfThePreviouslySittingOrder));
             }
         }
 

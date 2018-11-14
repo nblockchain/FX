@@ -5,10 +5,12 @@
 
 namespace FsharpExchangeDotNetStandard
 
+open System
+
 type MatchLeftOver =
     | NoMatch
     | UnmatchedLimitOrderLeftOverAfterPartialMatch of LimitOrder
-    | SideLeftAfterFullMatch of IOrderBookSideFragment
+    | SideLeftAfterFullMatch of OrderBookSideFragmentModification
 
 type OrderBook(bidSide: IOrderBookSideFragment, askSide: IOrderBookSideFragment,
                emptySide: Side -> IOrderBookSideFragment) =
@@ -19,20 +21,22 @@ type OrderBook(bidSide: IOrderBookSideFragment, askSide: IOrderBookSideFragment,
         | Side.Ask -> incomingOrder.Price < existingOrder.Price
 
     let rec InsertLimitOrder (incomingOrder: LimitOrder) (orderBookSide: IOrderBookSideFragment)
-                                 : IOrderBookSideFragment =
+                                 : OrderBookSideFragmentModification =
         orderBookSide.Insert incomingOrder CanPrependOrderBeforeOrder
 
-    let rec MatchMarket (quantityLeftToMatch: decimal) (orderBookSide: IOrderBookSideFragment): IOrderBookSideFragment =
+    let rec MatchMarket (quantityLeftToMatch: decimal) (orderBookSide: IOrderBookSideFragment)
+                        : OrderBookSideFragmentModification =
         match orderBookSide.Analyze() with
         | EmptyList ->
             raise LiquidityProblem
         | NonEmpty headTail ->
+
             let firstLimitOrder = headTail.Head
             let tail = headTail.Tail()
             if (quantityLeftToMatch > firstLimitOrder.OrderInfo.Quantity) then
                 MatchMarket (quantityLeftToMatch - firstLimitOrder.OrderInfo.Quantity) tail
             elif (quantityLeftToMatch = firstLimitOrder.OrderInfo.Quantity) then
-                tail
+                (fun _ -> tail)
             else //if (quantityLeftToMatch < firstLimitOrder.Quantity)
                 let side = firstLimitOrder.OrderInfo.Side
                 let newPartialLimitOrder = { Price = firstLimitOrder.Price;
@@ -63,7 +67,7 @@ type OrderBook(bidSide: IOrderBookSideFragment, askSide: IOrderBookSideFragment,
                 raise MatchExpectationsUnmet
 
             if (orderInBook.OrderInfo.Quantity = incomingOrder.OrderInfo.Quantity) then
-                SideLeftAfterFullMatch(restOfBookSide)
+                SideLeftAfterFullMatch(fun _ -> restOfBookSide)
             elif (orderInBook.OrderInfo.Quantity > incomingOrder.OrderInfo.Quantity) then
                 let partialRemainingQuantity = orderInBook.OrderInfo.Quantity - incomingOrder.OrderInfo.Quantity
                 let side = orderInBook.OrderInfo.Side
@@ -94,7 +98,7 @@ type OrderBook(bidSide: IOrderBookSideFragment, askSide: IOrderBookSideFragment,
                     MatchLimitOrders secondLimitOrder partialRemainingIncomingOrderRequest secondTail
 
     let rec MatchLimit (incomingOrderRequest: LimitOrderRequest) (orderBookSide: OrderBook)
-                     : OrderBook =
+                     : OrderBookModification =
         let incomingOrder = incomingOrderRequest.Order
         let incomingSide = incomingOrder.OrderInfo.Side
         let matchingSide,nonMatchingSide =
@@ -102,10 +106,11 @@ type OrderBook(bidSide: IOrderBookSideFragment, askSide: IOrderBookSideFragment,
             | Side.Bid -> askSide,bidSide
             | Side.Ask -> bidSide,askSide
 
-        let resultingSide,otherSide =
+        let resultingSideFunc,otherSideFunc,limitMatch
+            : OrderBookSideFragmentModification*OrderBookSideFragmentModification*Option<Match> =
             match matchingSide.Analyze() with
             | EmptyList ->
-                (InsertLimitOrder incomingOrder nonMatchingSide),matchingSide
+                (InsertLimitOrder incomingOrder nonMatchingSide),(fun _ -> matchingSide),None
             | NonEmpty headTail ->
                 let firstLimitOrder = headTail.Head
                 let restOfSide = headTail.Tail()
@@ -113,25 +118,47 @@ type OrderBook(bidSide: IOrderBookSideFragment, askSide: IOrderBookSideFragment,
 
                 match maybeMatchingResultSide with
                 | SideLeftAfterFullMatch newSide ->
-                    nonMatchingSide, newSide
+                    (fun _ -> nonMatchingSide), newSide, Some Match.Full
                 | NoMatch ->
-                    (InsertLimitOrder incomingOrder nonMatchingSide),matchingSide
+                    (InsertLimitOrder incomingOrder nonMatchingSide),(fun _ -> matchingSide), None
                 | UnmatchedLimitOrderLeftOverAfterPartialMatch leftOverOrder ->
-                    (InsertLimitOrder leftOverOrder nonMatchingSide),(emptySide (incomingSide.Other()))
-        match incomingSide with
-        | Side.Bid -> OrderBook(resultingSide, otherSide, emptySide)
-        | Side.Ask -> OrderBook(otherSide, resultingSide, emptySide)
+                    let matchAmount =
+                        incomingOrderRequest.Order.OrderInfo.Quantity - leftOverOrder.OrderInfo.Quantity
 
-    member internal this.InsertOrder (order: OrderRequest): OrderBook =
+                    (InsertLimitOrder leftOverOrder nonMatchingSide),
+                    (fun _ -> (emptySide (incomingSide.Other()))),
+                    Some (Match.Partial matchAmount)
+        match incomingSide with
+        | Side.Bid ->
+            (fun transaction ->
+                let resultingSide = resultingSideFunc transaction
+                let otherSide = otherSideFunc transaction
+                OrderBook(resultingSide, otherSide, emptySide), limitMatch)
+        | Side.Ask ->
+            (fun transaction  ->
+                let resultingSide = resultingSideFunc transaction
+                let otherSide = otherSideFunc transaction
+                OrderBook(otherSide, resultingSide, emptySide), limitMatch)
+
+    member internal this.InsertOrder (order: OrderRequest): OrderBookModification =
         match order with
         | Limit(limitOrder) ->
             MatchLimit limitOrder this
         | Market(marketOrder) ->
+            // a market order always matches in a full way unless an exception is thrown:
+            let marketMatch = Some Match.Full
+
             match marketOrder.Side with
             | Side.Bid ->
-                OrderBook(bidSide, MatchMarket marketOrder.Quantity askSide, emptySide)
+                (fun transaction ->
+                    let newAskSideFunc = MatchMarket marketOrder.Quantity askSide
+                    let newAskSide = newAskSideFunc transaction
+                    OrderBook(bidSide, newAskSide, emptySide),marketMatch)
             | Side.Ask ->
-                OrderBook(MatchMarket marketOrder.Quantity bidSide, askSide, emptySide)
+                (fun transaction ->
+                    let newBidSideFunc = MatchMarket marketOrder.Quantity bidSide
+                    let newBidSide = newBidSideFunc transaction
+                    OrderBook(newBidSide, askSide, emptySide),marketMatch)
 
     member x.Item
         with get (side: Side) =
@@ -139,6 +166,11 @@ type OrderBook(bidSide: IOrderBookSideFragment, askSide: IOrderBookSideFragment,
             | Side.Bid -> bidSide
             | Side.Ask -> askSide
 
+and OrderBookModification =
+    ITransaction->OrderBook*Option<Match>
+
 type IMarketStore =
     abstract member GetOrderBook: Market -> OrderBook
-    abstract member ReceiveOrder: OrderRequest -> Market -> unit
+    abstract member ReceiveOrder: OrderRequest -> Market -> Option<Match>
+    abstract member CancelOrder: Guid -> unit
+
