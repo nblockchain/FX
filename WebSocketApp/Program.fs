@@ -30,7 +30,7 @@ let indexHandler (name : string) =
 
 let loadioHandler (name: string) =
     let model     = { Text = "loaderio-113fb6f3a83b21f7a130078a2b03a8fa" }
-    razorHtmlView "Index" model
+    razorHtmlView "LoadIO" model
 
 let handlePostMessage =
     fun (next : HttpFunc) (ctx : HttpContext) ->
@@ -70,7 +70,7 @@ let webApp =
         GET >=>
             choose [
                 route "/" >=> indexHandler "world"
-                route "/loaderio-113fb6f3a83b21f7a130078a2b03a8fa" >=> loadioHandler ""
+                route "/loaderio-113fb6f3a83b21f7a130078a2b03a8fa.txt" >=> loadioHandler ""
                 routef "/hello/%s" indexHandler
             ]
         POST >=>
