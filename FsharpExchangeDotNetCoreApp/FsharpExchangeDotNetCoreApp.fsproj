@@ -11,6 +11,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FsharpExchangeDotNetStandard\FsharpExchangeDotNetStandard.fsproj" />
-	<PackageReference Include="FSharp.Core" Version="4.5.2" />
+    <PackageReference Include="FSharp.Core" Version="6.0.1" />
   </ItemGroup>
 </Project>
