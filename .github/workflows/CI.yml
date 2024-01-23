@@ -5,8 +5,8 @@ on:
   - pull_request
 
 jobs:
-  build:
-    name: Build
+  buildAndTest:
+    name: Build and Run Tests
     runs-on: ubuntu-22.04
     container:
       image: "ubuntu:22.04"
@@ -33,3 +33,7 @@ jobs:
 
       - name: Compile the main solution
         run: dotnet build
+
+      - name: Run tests
+        run: dotnet test
+
