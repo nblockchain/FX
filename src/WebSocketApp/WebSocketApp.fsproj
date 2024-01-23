@@ -29,6 +29,6 @@
     <Watch Include="**\*.cshtml" Exclude="bin\**\*" />
     <PackageReference Include="Microsoft.AspNetCore.WebSockets" Version="2.1.1" />
     <PackageReference Include="TaskBuilder.fs" Version="2.1.0" />
-    <ProjectReference Include="..\FsharpExchangeDotNetStandard\FsharpExchangeDotNetStandard.fsproj" />
+    <ProjectReference Include="..\FX.Core\FX.Core.fsproj" />
   </ItemGroup>
 </Project>
