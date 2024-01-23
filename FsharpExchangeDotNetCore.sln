@@ -1,13 +1,13 @@
 
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FsharpExchange.Tests", "FsharpExchange.Tests\FsharpExchange.Tests.csproj", "{984CE32C-454B-4FF1-B388-203DFD2CEAD8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FsharpExchange.Tests", "src\FsharpExchange.Tests\FsharpExchange.Tests.csproj", "{984CE32C-454B-4FF1-B388-203DFD2CEAD8}"
 EndProject
-Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "FsharpExchangeDotNetStandard", "FsharpExchangeDotNetStandard\FsharpExchangeDotNetStandard.fsproj", "{10A328B6-51E8-40DD-B6D8-361AFAEFABFA}"
+Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "FsharpExchangeDotNetStandard", "src\FsharpExchangeDotNetStandard\FsharpExchangeDotNetStandard.fsproj", "{10A328B6-51E8-40DD-B6D8-361AFAEFABFA}"
 EndProject
-Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "FsharpExchangeDotNetCoreApp", "FsharpExchangeDotNetCoreApp\FsharpExchangeDotNetCoreApp.fsproj", "{E741A563-9A64-49B9-8506-DEEB03DB340C}"
+Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "FsharpExchangeDotNetCoreApp", "src\FsharpExchangeDotNetCoreApp\FsharpExchangeDotNetCoreApp.fsproj", "{E741A563-9A64-49B9-8506-DEEB03DB340C}"
 EndProject
-Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "WebSocketApp", "WebSocketApp\WebSocketApp.fsproj", "{E41ECB40-3CD7-473B-9B73-6BDE00BD74B4}"
+Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "WebSocketApp", "src\WebSocketApp\WebSocketApp.fsproj", "{E41ECB40-3CD7-473B-9B73-6BDE00BD74B4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
