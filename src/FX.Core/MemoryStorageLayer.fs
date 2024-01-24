@@ -1,7 +1,4 @@
-﻿//
-// Copyright (C) 2018 Diginex Ltd. (www.diginex.com)
-//
-
+﻿
 namespace FsharpExchangeDotNetStandard.MemoryStorageLayer
 
 open FsharpExchangeDotNetStandard
