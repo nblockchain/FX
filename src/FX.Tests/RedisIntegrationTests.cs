@@ -11,7 +11,6 @@ using StackExchange.Redis;
 
 namespace FsharpExchange.Tests
 {
-    /* Not ready yet to be run in CI
     [TestFixture]
     public class RedisIntegrationTests
     {
@@ -231,5 +230,4 @@ namespace FsharpExchange.Tests
         }
 
     }
-    */
 }

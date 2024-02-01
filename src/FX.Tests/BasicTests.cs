@@ -24,10 +24,9 @@ namespace FsharpExchange.Tests
         internal static IEnumerable<Exchange> CreateExchangesOfDifferentTypes()
         {
             yield return new Exchange(Persistence.Memory);
-/*
+
             ClearRedisStorage();
             yield return new Exchange(Persistence.Redis);
-*/
         }
 
         [Test]
