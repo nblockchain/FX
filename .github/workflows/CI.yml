@@ -34,6 +34,11 @@ jobs:
       - name: Compile the main solution
         run: dotnet build
 
+      - name: Install and start Redis
+        run: |
+          sudo apt install --yes --no-install-recommends redis-server
+          redis-server --daemonize yes
+
       - name: Run tests
         run: dotnet test
 
