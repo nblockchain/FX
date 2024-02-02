@@ -31,8 +31,11 @@ jobs:
 
           apt install --yes --no-install-recommends dotnet7
 
+      - name: Restore nuget dependencies
+        run: dotnet restore
+
       - name: Compile the main solution
-        run: dotnet build
+        run: dotnet build --no-restore
 
       - name: Install and start Redis
         run: |
