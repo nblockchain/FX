@@ -17,9 +17,9 @@ jobs:
           apt update
           apt install --yes sudo
           sudo apt install --yes --no-install-recommends git
-      # workaround for https://github.com/actions/runner/issues/2033
-      - name: ownership workaround
-        run: git config --global --add safe.directory '*'
+
+          # workaround for https://github.com/actions/runner/issues/2033
+          git config --global --add safe.directory '*'
 
       - name: Setup .NET
         run: |
