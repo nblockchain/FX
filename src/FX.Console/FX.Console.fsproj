@@ -11,6 +11,5 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FX.Core\FX.Core.fsproj" />
-    <PackageReference Include="FSharp.Core" Version="6.0.1" />
   </ItemGroup>
 </Project>
