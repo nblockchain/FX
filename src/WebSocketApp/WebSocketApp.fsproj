@@ -30,5 +30,6 @@
     <PackageReference Include="Microsoft.AspNetCore.WebSockets" />
     <PackageReference Include="TaskBuilder.fs" />
     <ProjectReference Include="..\FX.Core\FX.Core.fsproj" />
+    <PackageReference Include="FSharp.Core" VersionOverride="7.0.0" />
   </ItemGroup>
 </Project>
