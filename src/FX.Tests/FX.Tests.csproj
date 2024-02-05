@@ -10,6 +10,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="StackExchange.Redis" />
     <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="FSharp.Core" />
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="Class1.cs" />
