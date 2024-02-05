@@ -5,8 +5,8 @@ on:
   - pull_request
 
 jobs:
-  buildAndTest:
-    name: Build and Run Tests
+  buildAndTest-linux:
+    name: Build and Run Tests (Linux)
     runs-on: ubuntu-22.04
     container:
       # TODO: move to 24.04 as soon as it is published in Apr2024
@@ -45,4 +45,22 @@ jobs:
 
       - name: Run tests
         run: dotnet test
+        
+  buildAndTest-windows:
+    name: Build (Windows)
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v1
+      with:
+        submodules: false
+    
+    - name: Setup .NET SDK 8.0.x
+      uses: actions/setup-dotnet@v1.7.2
+      with:
+        dotnet-version: '8.0.101'
+    
+    - name: Restore nuget dependencies
+      run: dotnet restore
 
+    - name: Compile the main solution
+      run: dotnet build --no-restore
