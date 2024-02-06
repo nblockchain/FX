@@ -17,5 +17,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FX.Core\FX.Core.fsproj" />
+    <ProjectReference Include="..\FX.GrpcClient\FX.GrpcClient.csproj" />
   </ItemGroup>
 </Project>

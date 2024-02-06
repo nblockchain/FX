@@ -20,7 +20,7 @@ namespace GrpcService.Services
         {
             Console.WriteLine(request.MsgIn);
 
-            await responseStream.WriteAsync(new GenericOutputParam { MsgOut = "ack" });
+            await responseStream.WriteAsync(new GenericOutputParam { MsgOut = "received " + request.MsgIn });
         }
     }
 }
