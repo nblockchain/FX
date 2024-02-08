@@ -4,6 +4,8 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- CS8981 is triggered by auto-generated protobuf types -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);CS8981</WarningsNotAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
