@@ -18,7 +18,7 @@ namespace GrpcClient
 
         public FXGrpcService.FXGrpcServiceClient Connect()
         {
-            var channel = GrpcChannel.ForAddress($"http://{serverFqdn}:{Port}");
+            var channel = GrpcChannel.ForAddress($"https://{serverFqdn}:{HttpsPort}");
             var client = new FXGrpcService.FXGrpcServiceClient(channel);
             return client;
         }

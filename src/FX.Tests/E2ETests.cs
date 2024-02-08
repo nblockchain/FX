@@ -19,7 +19,7 @@ namespace FsharpExchange.Tests
             var solutionDir = (new DirectoryInfo(Environment.CurrentDirectory)).Parent?.Parent?.Parent?.Parent?.Parent;
             var serviceExeDir = Path.Join(solutionDir.FullName, "src", "FX.GrpcService", "bin", "Debug", "net8.0");
 
-            var argsString = $"--urls http://localhost:{GrpcClient.Instance.Port}";
+            var argsString = $"--urls https://localhost:{GrpcClient.Instance.HttpsPort}";
 
             if (OperatingSystem.IsWindows())
             {

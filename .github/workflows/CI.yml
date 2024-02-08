@@ -31,6 +31,12 @@ jobs:
           apt install --yes --no-install-recommends ca-certificates
 
           apt install --yes --no-install-recommends dotnet8
+          
+          # Trust ASP.NET Core HTTPS development certificate so that GRPC server can be contacted through HTTPS.
+          # HTTPS connection is used in end-to-end GRPC tests.
+          dotnet dev-certs https
+          sudo -E dotnet dev-certs https --export-path /usr/local/share/ca-certificates/aspnet/https.crt --format PEM
+          sudo update-ca-certificates
 
       - name: Restore nuget dependencies
         run: dotnet restore
