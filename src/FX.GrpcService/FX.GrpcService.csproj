@@ -13,6 +13,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="FSharp.Core" />
     <PackageReference Include="Grpc.AspNetCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FX.Core\FX.Core.fsproj" />
+    <ProjectReference Include="..\FX.GrpcModels\FX.GrpcModels.fsproj" />
   </ItemGroup>
 </Project>

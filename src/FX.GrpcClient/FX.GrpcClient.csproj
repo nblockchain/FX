@@ -18,6 +18,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\FX.GrpcModels\FX.GrpcModels.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Protobuf Include="..\FX.GrpcService\Protos\fx.proto" GrpcServices="Client">
       <Link>Protos\fx.proto</Link>
     </Protobuf>

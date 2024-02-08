@@ -8,6 +8,7 @@ using NUnit.Framework;
 using StackExchange.Redis;
 
 using FsharpExchangeDotNetStandard;
+using GrpcModels;
 
 namespace FsharpExchange.Tests
 {
@@ -48,10 +49,11 @@ namespace FsharpExchange.Tests
             var client = new GrpcClient.Instance();
             client.Connect();
 
-            var message = "hello";
-            var response = await client.SendMessage(message);
+            var order = new GrpcModels.MarketOrder("Ask", 0.0m);
+            var response = await client.SendMessage(order);
 
-            Assert.That(response, Is.EqualTo("received " + message));
+            // for now response to MarketOrder is empty string 
+            Assert.That(response, Is.Empty);
         }
     }
 }

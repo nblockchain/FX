@@ -6,6 +6,8 @@ using Grpc.Net.Client;
 
 using GrpcService;
 
+using GrpcModels;
+
 namespace GrpcClient
 {
     public class Instance
@@ -31,6 +33,19 @@ namespace GrpcClient
             );
             Console.WriteLine($"Got response: {reply.MsgOut}");
             return reply.MsgOut;
+        }
+
+        public async Task<string> SendMessage<TMessage>(TMessage message)
+        {
+            var text = Marshaller.Serialize(message);
+            return await SendMessage(text);
+        }
+
+        public async Task<TResponse> SendMessage<TMessage, TResponse>(TMessage message)
+        {
+            var text = Marshaller.Serialize(message);
+            var responseText = await SendMessage(text);
+            return Marshaller.Deserialize<TResponse>(responseText);
         }
     }
 }
