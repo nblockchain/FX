@@ -5,8 +5,12 @@ open System
 
 open FsharpExchangeDotNetStandard
 
-open Newtonsoft.Json
+open System.Text.Json
 open StackExchange.Redis
+
+[<AutoOpen>]
+module Serialization =
+    let serializationOptions = JsonSerializerOptions.Default
 
 type OrderQuery =
     {
@@ -26,9 +30,9 @@ type Query =
 
 type OrderBookSide(market: Market, side: Side) =
     let tipQuery = { Market = market; Tip = true; Side = side }
-    let tipQueryStr = JsonConvert.SerializeObject tipQuery
+    let tipQueryStr = JsonSerializer.Serialize(tipQuery, serializationOptions)
     let tailQuery = { Market = market; Tip = false; Side = side }
-    let tailQueryStr = JsonConvert.SerializeObject tailQuery
+    let tailQueryStr = JsonSerializer.Serialize(tailQuery, serializationOptions)
     member __.TipQuery = tipQueryStr
     member __.TailQuery = tailQueryStr
 
@@ -53,7 +57,7 @@ module OrderRedisManager =
         db.CreateTransaction()
 
     let InsertOrder (limitOrder: LimitOrder): unit =
-        let serializedOrder = JsonConvert.SerializeObject limitOrder
+        let serializedOrder = JsonSerializer.Serialize(limitOrder, serializationOptions)
         let success = db.StringSet(RedisKey.op_Implicit (limitOrder.OrderInfo.Id.ToString()),
                                    RedisValue.op_Implicit (serializedOrder))
         if not success then
@@ -89,7 +93,7 @@ module OrderRedisManager =
             let orderSerialized = db.StringGet (RedisKey.op_Implicit tipOrderGuid)
             if not orderSerialized.HasValue then
                 failwithf "Something went wrong, order tip was %s but was not found" tipOrderGuid
-            let tipOrder = JsonConvert.DeserializeObject<LimitOrder> (orderSerialized.ToString())
+            let tipOrder = JsonSerializer.Deserialize<LimitOrder>(orderSerialized.ToString(), serializationOptions)
             tipOrder |> Some
 
     let private GetOrderSerialized (guidStr: string): Option<string> =
@@ -111,7 +115,7 @@ module OrderRedisManager =
         match maybeOrderSerialized with
         | None -> None
         | Some orderSerialized ->
-            let order = JsonConvert.DeserializeObject<LimitOrder> (orderSerialized.ToString())
+            let order = JsonSerializer.Deserialize<LimitOrder>(orderSerialized.ToString(), serializationOptions)
             order |> Some
 
     let GetOrderByGuid (guid: Guid): Option<LimitOrder> =
@@ -122,13 +126,13 @@ module OrderRedisManager =
         if not tail.HasValue then
             List.empty
         else
-            JsonConvert.DeserializeObject<List<string>> (tail.ToString())
+            JsonSerializer.Deserialize<List<string>>(tail.ToString(), serializationOptions)
 
     let SetTail (transaction: StackExchange.Redis.ITransaction)
                 (limitOrderGuids: List<string>)
                 (orderBookSide: OrderBookSide)
                     : unit =
-        let serializedGuids = JsonConvert.SerializeObject limitOrderGuids
+        let serializedGuids = JsonSerializer.Serialize(limitOrderGuids, serializationOptions)
         transaction.StringSetAsync(RedisKey.op_Implicit orderBookSide.TailQuery,
                                    RedisValue.op_Implicit serializedGuids)
             |> ignore
