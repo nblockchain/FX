@@ -6,11 +6,40 @@ open System
 open FsharpExchangeDotNetStandard
 
 open System.Text.Json
+open System.Text.Json.Serialization
 open StackExchange.Redis
 
 [<AutoOpen>]
 module Serialization =
-    let serializationOptions = JsonSerializerOptions.Default
+    // TODO: use FSharp.SystemTextJson for Discriminated Union support,
+    // in that case custom type converters are no longer needed
+    type SideTypeConverter() =
+        inherit JsonConverter<Side>()
+
+        override this.Read(reader, _typeToConvert, _options) =
+            reader.GetString() |> Side.Parse
+
+        override this.Write(writer, value, _options ) =
+            writer.WriteStringValue(value.ToString())
+
+    type CurrencyTypeConverter() =
+        inherit JsonConverter<Currency>()
+
+        override this.Read(reader, _typeToConvert, _options) =
+            match reader.GetString() with
+            | "BTC" -> BTC
+            | "USD" -> USD
+            | unknownCurrency -> failwithf "Unknown currency: %s" unknownCurrency
+
+        override this.Write(writer, value, _options ) =
+            writer.WriteStringValue(value.ToString())
+
+    let serializationOptions =
+        let options = JsonSerializerOptions()
+        options.Converters.Add(SideTypeConverter())
+        options.Converters.Add(CurrencyTypeConverter())
+        options
+
 
 type OrderQuery =
     {
