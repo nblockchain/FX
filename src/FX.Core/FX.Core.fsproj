@@ -13,6 +13,6 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="StackExchange.Redis" />
-    <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="System.Text.Json" />
   </ItemGroup>
 </Project>

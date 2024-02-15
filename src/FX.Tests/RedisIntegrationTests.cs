@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using FsharpExchangeDotNetStandard;
 using FsharpExchangeDotNetStandard.Redis;
 
-using Newtonsoft.Json;
+using System.Text.Json;
 using NUnit.Framework;
 using StackExchange.Redis;
 
@@ -33,8 +33,8 @@ namespace FsharpExchange.Tests
 
             var tipQuery = new MarketQuery(market, limitOrder.OrderInfo.Side, true);
 
-            //e.g. {"Market":{"BuyCurrency":{"Case":"BTC"},"SellCurrency":{"Case":"USD"}},"Side":{"Case":"Buy"},"Tip":true}"
-            string tipQueryStr = JsonConvert.SerializeObject(tipQuery);
+            //e.g. {"Market":{"BuyCurrency":"BTC","SellCurrency":"USD"},"Side":"Bid","Tip":true}"
+            string tipQueryStr = JsonSerializer.Serialize(tipQuery, Serialization.serializationOptions);
 
             using (var redis = ConnectionMultiplexer.Connect("localhost"))
             {
@@ -76,7 +76,7 @@ namespace FsharpExchange.Tests
                             "should have the order content(not null)");
 
                 var limitOrderSerialized =
-                    JsonConvert.SerializeObject(limitOrder);
+                    JsonSerializer.Serialize(limitOrder, Serialization.serializationOptions);
                 Assert.That(order.ToString(),
                             Is.EqualTo(limitOrderSerialized),
                             "received order should have same content");
@@ -129,8 +129,8 @@ namespace FsharpExchange.Tests
 
             var nonTipQuery = new MarketQuery(market, side, false);
 
-            //e.g. {"Market":{"BuyCurrency":{"Case":"BTC"},"SellCurrency":{"Case":"USD"}},"Side":{"Case":"Buy"},"Tip":true}"
-            string nontipQueryStr = JsonConvert.SerializeObject(nonTipQuery);
+            //e.g. {"Market":{"BuyCurrency":"BTC","SellCurrency":"USD"},"Side":"Bid","Tip":false}"
+            string nontipQueryStr = JsonSerializer.Serialize(nonTipQuery, Serialization.serializationOptions);
 
             using (var redis = ConnectionMultiplexer.Connect("localhost"))
             {
@@ -139,7 +139,7 @@ namespace FsharpExchange.Tests
                 var values = db.StringGet(nontipQueryStr);
                 Assert.That(String.IsNullOrEmpty(values), Is.False,
                             "should have nontip tail(not null) in this market");
-                var orders = JsonConvert.DeserializeObject<List<string>>(values);
+                var orders = JsonSerializer.Deserialize<List<string>>(values, Serialization.serializationOptions);
                 Assert.That(orders.Count, Is.EqualTo(2),
                     "should have nontip tail of 2 elements in this market now");
 
@@ -156,7 +156,7 @@ namespace FsharpExchange.Tests
                 Assert.That(order2.IsNull, Is.EqualTo(false),
                             "should have the second order content(not null)");
                 var secondLimitOrderSerialized =
-                    JsonConvert.SerializeObject(secondLimitOrder);
+                    JsonSerializer.Serialize(secondLimitOrder, Serialization.serializationOptions);
                 Assert.That(order2.ToString(),
                             Is.EqualTo(secondLimitOrderSerialized),
                             "received second order should have same content");
@@ -167,7 +167,7 @@ namespace FsharpExchange.Tests
                 Assert.That(order3.IsNull, Is.EqualTo(false),
                             "should have the third order content(not null)");
                 var thirdLimitOrderSerialized =
-                    JsonConvert.SerializeObject(thirdLimitOrder);
+                    JsonSerializer.Serialize(thirdLimitOrder, Serialization.serializationOptions);
                 Assert.That(order3.ToString(),
                             Is.EqualTo(thirdLimitOrderSerialized),
                             "received second order should have same content");
@@ -198,8 +198,8 @@ namespace FsharpExchange.Tests
 
             var nonTipQuery = new MarketQuery(market, side, false);
 
-            //e.g. {"Market":{"BuyCurrency":{"Case":"BTC"},"SellCurrency":{"Case":"USD"}},"Side":{"Case":"Buy"},"Tip":true}"
-            string nontipQueryStr = JsonConvert.SerializeObject(nonTipQuery);
+            //e.g. {"Market":{"BuyCurrency":"BTC","SellCurrency":"USD"},"Side":"Bid","Tip":false}"
+            string nontipQueryStr = JsonSerializer.Serialize(nonTipQuery, Serialization.serializationOptions);
 
             using (var redis = ConnectionMultiplexer.Connect("localhost"))
             {
@@ -208,7 +208,7 @@ namespace FsharpExchange.Tests
                 var values = db.StringGet(nontipQueryStr);
                 Assert.That(String.IsNullOrEmpty(values), Is.False,
                             "should have nontip tail(not null) in this market");
-                var orders = JsonConvert.DeserializeObject<List<string>>(values);
+                var orders = JsonSerializer.Deserialize<List<string>>(values, Serialization.serializationOptions);
                 Assert.That(orders.Count, Is.EqualTo(1),
                     "should have nontip tail of 2 elements in this market now");
 
@@ -222,7 +222,7 @@ namespace FsharpExchange.Tests
                 Assert.That(theOrder.IsNull, Is.EqualTo(false),
                             "should have the second order content(not null)");
                 var firstLimitOrderSerialized =
-                    JsonConvert.SerializeObject(firstLimitOrder);
+                    JsonSerializer.Serialize(firstLimitOrder, Serialization.serializationOptions);
                 Assert.That(theOrder.ToString(),
                             Is.EqualTo(firstLimitOrderSerialized),
                             "received second order should have same content");
