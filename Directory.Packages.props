@@ -10,7 +10,7 @@
     <PackageVersion Include="Microsoft.AspNetCore.App" Version="2.1.34" />
     <PackageVersion Include="Giraffe" Version="3.1.0" />
     <PackageVersion Include="Giraffe.Razor" Version="1.3.0" />
-    <PackageVersion Include="Microsoft.AspNetCore.WebSockets" Version="2.1.1" />
+    <PackageVersion Include="Microsoft.AspNetCore.WebSockets" Version="2.1.7" />
     <PackageVersion Include="System.Text.Json" Version="8.0.1" />
     <PackageVersion Include="TaskBuilder.fs" Version="2.1.0" />
     <PackageVersion Include="FSharp.Core" Version="8.0.101" />
