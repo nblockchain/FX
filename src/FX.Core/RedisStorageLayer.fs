@@ -34,10 +34,82 @@ module Serialization =
         override this.Write(writer, value, _options ) =
             writer.WriteStringValue(value.ToString())
 
+    type MatchTypeConverter() =
+        inherit JsonConverter<Match>()
+
+        override this.Read(reader, _typeToConvert, _options) =
+            if reader.TokenType <> JsonTokenType.StartObject then
+                raise <| JsonException()
+            
+            // "Type" key
+            reader.Read() |> ignore
+            if reader.TokenType <> JsonTokenType.PropertyName || reader.GetString() <> "Type" then
+                raise <| JsonException()
+            // "Type" value
+            reader.Read() |> ignore
+            match reader.GetString() with
+            | "Full" ->
+                reader.Read() |> ignore
+                if reader.TokenType <> JsonTokenType.EndObject then
+                    raise <| JsonException()
+                Match.Full
+            | "Parital" -> 
+                // "Amount" key
+                reader.Read() |> ignore
+                if reader.TokenType <> JsonTokenType.PropertyName || reader.GetString() <> "Amount" then
+                    raise <| JsonException()
+                // "Amount" value
+                let amount = reader.GetDecimal()
+                reader.Read() |> ignore
+                if reader.TokenType <> JsonTokenType.EndObject then
+                    raise <| JsonException()
+                Match.Partial amount
+            | typeName -> raise <| JsonException("Unknown Match type: " + typeName)
+
+        override this.Write(writer, value, _options ) =
+            writer.WriteStartObject()
+            match value with
+            | Full ->
+                writer.WriteString("Type", "Full")
+            | Partial amount ->
+                writer.WriteString("Type", "Partial")
+                writer.WriteNumber("Amount", amount)
+            writer.WriteEndObject()
+
+    // code from https://gist.github.com/mbuhot/c224f15e0266adf5ba8ca4e882f88a75
+    // Converts Option<T> to/from JSON by projecting to null or T
+    type OptionValueConverter<'T>() =
+        inherit JsonConverter<Option<'T>>()
+
+        override this.Read (reader: byref<Utf8JsonReader>, _typ: Type, options: JsonSerializerOptions) =
+            match reader.TokenType with
+            | JsonTokenType.Null -> None
+            | _ -> Some <| JsonSerializer.Deserialize<'T>(&reader, options)
+
+        override this.Write (writer: Utf8JsonWriter, value: Option<'T>, options: JsonSerializerOptions) =
+            match value with
+            | None -> writer.WriteNullValue ()
+            | Some value -> JsonSerializer.Serialize(writer, value, options)
+
+    // Instantiates the correct OptionValueConverter<T>
+    type OptionConverter() =
+        inherit JsonConverterFactory()
+            override this.CanConvert(typ: Type) : bool =
+                typ.IsGenericType &&
+                typ.GetGenericTypeDefinition() = typedefof<Option<_>>
+
+            override this.CreateConverter(typeToConvert: Type,
+                                          _options: JsonSerializerOptions) : JsonConverter =
+                let typ = typeToConvert.GetGenericArguments() |> Array.head
+                let converterType = typedefof<OptionValueConverter<_>>.MakeGenericType(typ)
+                Activator.CreateInstance(converterType) :?> JsonConverter
+
     let serializationOptions =
         let options = JsonSerializerOptions()
         options.Converters.Add(SideTypeConverter())
         options.Converters.Add(CurrencyTypeConverter())
+        options.Converters.Add(MatchTypeConverter())
+        options.Converters.Add(OptionConverter())
         options
 
 

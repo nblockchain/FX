@@ -14,5 +14,9 @@
     <PackageVersion Include="System.Text.Json" Version="8.0.1" />
     <PackageVersion Include="TaskBuilder.fs" Version="2.1.0" />
     <PackageVersion Include="FSharp.Core" Version="8.0.101" />
+    <PackageVersion Include="Grpc.AspNetCore" Version="2.40.0" />
+    <PackageVersion Include="Google.Protobuf" Version="3.18.0" />
+    <PackageVersion Include="Grpc.Net.ClientFactory" Version="2.40.0" />
+    <PackageVersion Include="Grpc.Tools" Version="2.40.0" />
   </ItemGroup>
 </Project>
