@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
+using Microsoft.FSharp.Core;
 
 using NUnit.Framework;
 using StackExchange.Redis;
@@ -48,12 +49,11 @@ namespace FsharpExchange.Tests
 
             var client = new GrpcClient.Instance();
             client.Connect();
+            
+            var order = new GrpcModels.LimitOrder(1.0m, Side.Ask.ToString(), 1.0m);
+            var response = await client.SendMessage<GrpcModels.LimitOrder, FSharpOption<Match>>(order);
 
-            var order = new GrpcModels.MarketOrder("Ask", 0.0m);
-            var response = await client.SendMessage(order);
-
-            // for now response to MarketOrder is empty string 
-            Assert.That(response, Is.Empty);
+            Assert.That(response.Value.IsFull);
         }
     }
 }
