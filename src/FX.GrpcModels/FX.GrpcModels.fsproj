@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <Compile Include="Models.fs" />
+    <Compile Include="ModelSerialization.fs" />
     <Compile Include="Marshalling.fs" />
   </ItemGroup>
 

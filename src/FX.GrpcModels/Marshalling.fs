@@ -4,7 +4,7 @@ open System
 open System.Reflection
 open System.Text.Json
 
-open FsharpExchangeDotNetStandard.Redis.Serialization
+open ModelSerialization
 
 module VersionHelper =
     let CURRENT_VERSION =
