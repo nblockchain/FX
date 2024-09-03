@@ -48,12 +48,19 @@ namespace FsharpExchange.Tests
             await Task.Delay(TimeSpan.FromSeconds(1.0));
 
             var client = new GrpcClient.Instance();
-            client.Connect();
             
             var order = new GrpcModels.LimitOrder(1.0m, Side.Ask.ToString(), 1.0m);
             var response = await client.SendMessage<GrpcModels.LimitOrder, FSharpOption<Match>>(order);
 
-            Assert.That(response.Value.IsFull);
+            Assert.That(response, Is.Null);
+
+            var client2 = new GrpcClient.Instance();
+
+            var order2 = new GrpcModels.LimitOrder(1.0m, Side.Bid.ToString(), 2.0m);
+            var response2 = await client2.SendMessage<GrpcModels.LimitOrder, FSharpOption<Match>>(order2);
+
+            Assert.That(response2.Value.IsPartial);
+            Assert.That((response2.Value as Match.Partial).Item, Is.EqualTo(1.0m));
         }
     }
 }
