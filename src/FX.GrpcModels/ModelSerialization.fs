@@ -31,6 +31,9 @@ module ModelSerialization =
                 if reader.TokenType <> JsonTokenType.PropertyName || reader.GetString() <> "Amount" then
                     raise <| JsonException()
                 // "Amount" value
+                reader.Read() |> ignore
+                if reader.TokenType <> JsonTokenType.Number then
+                    raise <| JsonException()
                 let amount = reader.GetDecimal()
                 reader.Read() |> ignore
                 if reader.TokenType <> JsonTokenType.EndObject then
