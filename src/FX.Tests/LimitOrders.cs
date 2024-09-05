@@ -13,6 +13,12 @@ namespace FsharpExchange.Tests
     [TestFixture]
     public class LimitOrders
     {
+        [TearDown]
+        public void TearDown()
+        {
+            BasicTests.ClearRedisStorage();
+        }
+
         internal static FSharpOption<Match> SendOrder(Exchange exchange,
                                        LimitOrder limitOrder,
                                        Market market)

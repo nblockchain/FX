@@ -10,6 +10,12 @@ namespace FsharpExchange.Tests
     [TestFixture]
     public class MarketOrders
     {
+        [TearDown]
+        public void TearDown()
+        {
+            BasicTests.ClearRedisStorage();
+        }
+
         private void Market_order_exact_match_on_exchange_with_one_limit_order(Side side)
         {
             var quantity = 1;

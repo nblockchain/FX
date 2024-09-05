@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+option csharp_namespace = "GrpcService";
+
+package fx;
+
+// The greeting service definition.
+service FXGrpcService {
+  // Sends a greeting
+  rpc GenericMethod (GenericInputParam) returns (GenericOutputParam);
+
+  rpc GenericStreamOutputMethod (GenericInputParam) returns (stream GenericOutputParam);
+}
+
+// The request message containing the user's name.
+message GenericInputParam {
+  string msgIn = 1;
+}
+
+// The response message containing the greetings.
+message GenericOutputParam {
+  string msgOut = 1;
+}

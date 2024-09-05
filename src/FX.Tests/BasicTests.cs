@@ -21,6 +21,12 @@ namespace FsharpExchange.Tests
             }
         }
 
+        [TearDown]
+        public void TearDown()
+        {
+            ClearRedisStorage();
+        }
+
         internal static IEnumerable<Exchange> CreateExchangesOfDifferentTypes()
         {
             yield return new Exchange(Persistence.Memory);

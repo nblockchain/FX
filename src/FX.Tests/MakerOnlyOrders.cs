@@ -11,6 +11,12 @@ namespace FsharpExchange.Tests
     [TestFixture]
     public class MakerOnlyOrders
     {
+        [TearDown]
+        public void TearDown()
+        {
+            BasicTests.ClearRedisStorage();
+        }
+
         internal static IEnumerable<Exchange>
             Limit_order_is_accepted_by_empty_exchange
             (LimitOrder limitOrder,
