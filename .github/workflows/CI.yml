@@ -13,10 +13,9 @@ on:
 jobs:
   buildAndTest-linux:
     name: Build and Run Tests (Linux)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container:
-      # TODO: move to 24.04 as soon as it is published in Apr2024
-      image: "ubuntu:23.10"
+      image: "ubuntu:24.04"
     steps:
       - uses: actions/checkout@v2
       - name: Install required dependencies
@@ -37,12 +36,6 @@ jobs:
           apt install --yes --no-install-recommends ca-certificates
 
           apt install --yes --no-install-recommends dotnet8
-          
-          # Trust ASP.NET Core HTTPS development certificate so that GRPC server can be contacted through HTTPS.
-          # HTTPS connection is used in end-to-end GRPC tests.
-          dotnet dev-certs https
-          sudo -E dotnet dev-certs https --export-path /usr/local/share/ca-certificates/aspnet/https.crt --format PEM
-          sudo update-ca-certificates
 
       - name: Restore nuget dependencies
         run: dotnet restore
@@ -56,7 +49,14 @@ jobs:
           redis-server --daemonize yes
 
       - name: Run tests
-        run: dotnet test
+        run: |
+          # Trust ASP.NET Core HTTPS development certificate so that GRPC server can be contacted through HTTPS.
+          # HTTPS connection is used in end-to-end GRPC tests.
+          dotnet dev-certs https
+          sudo -E dotnet dev-certs https --trust --format PEM
+          sudo update-ca-certificates
+          
+          dotnet test
         
   buildAndTest-windows:
     name: Build (Windows)
