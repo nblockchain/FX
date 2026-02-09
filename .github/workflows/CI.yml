@@ -18,6 +18,8 @@ jobs:
       image: "ubuntu:24.04"
     steps:
       - uses: actions/checkout@v2
+        with:
+          submodules: false
       - name: Install required dependencies
         run: |
           apt update
@@ -62,7 +64,7 @@ jobs:
     name: Build (Windows)
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
       with:
         submodules: false
     
