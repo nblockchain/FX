@@ -26,9 +26,6 @@ jobs:
           apt install --yes sudo
           sudo apt install --yes --no-install-recommends git
 
-          # workaround for https://github.com/actions/runner/issues/2033
-          git config --global --add safe.directory '*'
-
       - name: Setup .NET
         run: |
           # We need to install `ca-certificates`, otherwise we get these errors in the CI:
